@@ -1,0 +1,9 @@
+# dsh-plugin-yapi — bundle patch.
+#
+# This MUST stay a plain insert: DSH's plugin market can hot-mount a bundle
+# whose patch contains only insert rows (`- insert:` / `- id:` / `name:`).
+# The YAPI account lives in ~/.dsh/dsh-plugin-yapi.json instead of here, so the
+# patch carries no secret and the plugin can be enabled without an app restart.
+- insert:
+    - id: yapi
+      name: 'dsh-plugin-yapi'
