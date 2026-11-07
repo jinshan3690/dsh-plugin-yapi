@@ -2,7 +2,7 @@
 
 给 DeepSeek Harness（DSH）左侧加一个 **YAPI** 面板：按文档 ID / 链接打开接口、按路径或标题搜索、多标签切换、字段树、勾选复制。附带一个 `yapi-doc` skill 和零依赖 CLI，AI 或终端可以直接读取 YAPI 文档。
 
-> 仓库不包含任何真实 YAPI 地址、账号或密码；安装后在面板「账号设置」里配置。
+> 仓库不包含任何真实 YAPI 地址、账号或密码；安装后在面板或环境变量里配置。
 
 ## 功能
 
@@ -14,11 +14,9 @@
 - **账号设置**：面板内填写 YAPI 地址、账号、密码，保存前会真实登录验证。
 - **Skill / CLI**：`yapi-doc` 随插件自动注册，DSH 会话或任意 shell 工具都能直接读文档。
 
-## 安装
+## 安装（DSH）
 
 要求：DSH 0.2.2+（桌面端或 web profile）、Node 20+、能访问你的 YAPI 服务。
-
-### 方式 A：DSH 官方 CLI（推荐）
 
 先**完全退出 DSH**（桌面端要关闭应用，不是最小化），然后：
 
@@ -36,25 +34,6 @@ dsh plugin --profile desktop add github:jinshan3690/dsh-plugin-yapi
 - web profile 把 `--profile desktop` 换成 `--profile web`。
 - 命令会自动把插件加进 profile 的 bundle，并注册插件自带的 `yapi-doc` skill，不需要再复制文件。
 - 安装完成后重新打开 DSH。
-
-### 方式 B：安装脚本（不关闭 DSH）
-
-```bash
-git clone https://github.com/jinshan3690/dsh-plugin-yapi.git
-cd dsh-plugin-yapi
-./install.sh          # ./install.sh web 用于 web profile
-```
-
-脚本会复制插件到 `~/.dsh/local-plugins/dsh-plugin-yapi`、建立软链、写入 bundle，并把 skill 装到 `~/.dsh/skills/yapi-doc`。之后重启 DSH，或直接刷新页面。
-
-这种方式可以在安装时预置账号（三项必须同时提供）：
-
-```bash
-YAPI_BASE_URL='https://yapi.example.com' \
-YAPI_EMAIL='you@example.com' \
-YAPI_PASSWORD='your-password' \
-./install.sh
-```
 
 ## 配置
 
@@ -78,17 +57,37 @@ YAPI_PASSWORD='your-password' \
 - 标题栏 **复制** → 勾选内容 → 复制；「带备注」会在 JSON 字段后追加 `// 字段备注`。
 - 接口路径和完整请求地址只做展示；服务地址可在详情里改（用于不同环境）。
 
-## Skill / CLI
+## 非 DSH 工具（CLI / Skill）
 
-`yapi-doc` 是插件自带的 skill，两种安装方式都会注册它。命令行入口：
+CLI 是零依赖 Node 脚本，不需要 DSH。直接命令行安装：
 
 ```bash
-# 方式 A：profile 级 bin
-~/.dsh/profiles/desktop/node_modules/.bin/yapi-doc <doc-id>
-
-# 方式 B：安装脚本复制到 skill 目录
-node "$HOME/.dsh/skills/yapi-doc/yapi-doc.mjs" <doc-id>
+npm install -g github:jinshan3690/dsh-plugin-yapi
+yapi-doc install-skill
+yapi-doc <doc-id>
 ```
+
+- `install-skill` 默认把 `SKILL.md` 和 CLI 装到 `~/.agents/skills/yapi-doc`；支持 `SKILL.md` 的 agent 可直接读取。
+- 其他 agent 的 skills 目录用 `--dir`：
+
+  ```bash
+  yapi-doc install-skill --dir <skills目录>/yapi-doc
+  ```
+
+- 不想全局安装时：
+
+  ```bash
+  npx -y -p github:jinshan3690/dsh-plugin-yapi yapi-doc install-skill
+  node "$HOME/.agents/skills/yapi-doc/yapi-doc.mjs" <doc-id>
+  ```
+
+- 账号读取 `~/.dsh/dsh-plugin-yapi.json`，或设置环境变量：
+
+  ```bash
+  export YAPI_BASE_URL='https://yapi.example.com'
+  export YAPI_EMAIL='you@example.com'
+  export YAPI_PASSWORD='your-password'
+  ```
 
 常用参数：
 
@@ -104,24 +103,23 @@ yapi-doc <doc-id> --json          # 结构化输出
 - `--full`：额外输出返回体示例（可能很大）。
 - `--json`：输出 `{ ok, data }` 结构化 JSON。
 - `--project <id>`：`--search` 必填。
-- 账号读取 `~/.dsh/dsh-plugin-yapi.json` 或上述环境变量。
 
-**DSH**：在会话里说「读一下 YAPI 10001」或「找一下 warehouse 相关接口」即可触发。
-
-**任意工具**：`yapi-doc.mjs` 是零依赖 Node 脚本，Codex、Claude Code、CI、普通终端都能直接运行。其他支持相同 `SKILL.md` / `.agents/skills` 约定的 agent 也可以复用这个 skill 目录。
+**DSH 用户**不需要上面的 npm 安装：插件已自动注册 skill，CLI 在
+`~/.dsh/profiles/desktop/node_modules/.bin/yapi-doc`。
 
 ## 更新 / 卸载
 
-方式 A（先退出 DSH）：
+DSH（先退出）：
 
 ```bash
 dsh plugin --profile desktop remove dsh-plugin-yapi
 ```
 
-方式 B：
+非 DSH：
 
 ```bash
-./uninstall.sh
+npm uninstall -g dsh-plugin-yapi
+rm -rf ~/.agents/skills/yapi-doc   # 按实际安装目录删除
 ```
 
 更新时重新执行对应的安装命令即可。账号文件 `~/.dsh/dsh-plugin-yapi.json` 会保留，按需手动删除。
@@ -140,8 +138,7 @@ index.js              Host 半：登录、文档、搜索、设置、内置 skil
 client.js             客户端半：面板、标签、字段树、复制弹窗
 lib/core.js           解析、URL、Body、搜索排序
 bin/yapi-doc.mjs      CLI 启动器
-skills/yapi-doc/      SKILL.md + 零依赖 CLI
-install.sh            离线/热安装脚本
+skills/yapi-doc/      SKILL.md + 零依赖 CLI（含 install-skill）
 test/*.test.mjs       单元测试
 ```
 

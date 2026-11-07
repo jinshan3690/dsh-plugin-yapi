@@ -25,6 +25,18 @@ node "$HOME/.dsh/skills/yapi-doc/yapi-doc.mjs" 10001 --json
 Windows 下把 `$HOME` 换成 `%USERPROFILE%`，路径为
 `%USERPROFILE%\.dsh\skills\yapi-doc\yapi-doc.mjs`。
 
+## 安装到其他工具
+
+DSH 用户由插件自动注册，不需要执行本节。
+
+```bash
+npm install -g github:jinshan3690/dsh-plugin-yapi
+yapi-doc install-skill                 # 默认装到 ~/.agents/skills/yapi-doc
+yapi-doc install-skill --dir <目录>    # 其他 agent 的 skills 目录
+```
+
+`install-skill` 会复制本 `SKILL.md` 和 CLI，并把下面的路径改成实际安装目录。
+
 ## 选项
 
 - `--no-fields`：不输出字段说明，输出最小（方法、路径、请求头、参数、请求 Body）。只关心请求怎么发时用它。
@@ -50,4 +62,5 @@ CLI 读取 `~/.dsh/dsh-plugin-yapi.json`（YAPI 面板 → 账号设置维护）
 
 `yapi-doc.mjs` 是**零依赖的 Node 脚本**，任何能执行 shell 的工具（Codex、Claude Code、
 CI、普通终端）都可以直接运行。`SKILL.md` 本身是给支持 skill 目录约定的 agent 读的；
+`yapi-doc install-skill --dir <目录>` 可以装到任意 agent 的 skills 目录。
 DSH 会从 `~/.dsh/skills`、`.dsh/skills`、`.agents/skills` 等目录发现它。

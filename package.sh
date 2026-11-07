@@ -4,10 +4,8 @@
 #   ./package.sh
 #
 # Output: dist/dsh-plugin-yapi-<version>.tar.gz
-# The archive's top-level folder is dsh-plugin-yapi/, with install.sh and
-# uninstall.sh inside, so the recipient can:
-#   tar -xzf dsh-plugin-yapi-<version>.tar.gz
-#   cd dsh-plugin-yapi && ./install.sh
+# The archive's top-level folder is dsh-plugin-yapi/; install it with:
+#   dsh plugin --profile desktop add file:/path/to/dsh-plugin-yapi
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"

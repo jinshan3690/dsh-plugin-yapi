@@ -14,10 +14,12 @@
  *   yapi-doc 10001 --full          # include the response body example
  *   yapi-doc 10001 --json          # structured output
  *   yapi-doc 10001 --no-fields     # skip field documentation
+ *   yapi-doc install-skill         # install SKILL.md + CLI into ~/.agents/skills/yapi-doc
  */
-import { readFileSync } from 'node:fs'
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const DSH_HOME = process.env.DSH_HOME || join(homedir(), '.dsh')
 const CONFIG_FILE = join(DSH_HOME, 'dsh-plugin-yapi.json')
@@ -317,6 +319,39 @@ function responseFields(raw) {
 }
 
 /* ------------------------------------------------------------------ */
+/* skill installer                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Copy this CLI and its SKILL.md into a skill root. Used outside DSH, where
+ * `dsh plugin add` is not available. The copied SKILL.md is rewritten so every
+ * command points at the new location.
+ * @param {string} dirArg - optional target directory; defaults to ~/.agents/skills/yapi-doc.
+ */
+function installSkill(dirArg) {
+  const sourceDir = dirname(fileURLToPath(import.meta.url))
+  const sourceSkill = join(sourceDir, 'SKILL.md')
+  const sourceCli = join(sourceDir, 'yapi-doc.mjs')
+  if (!existsSync(sourceSkill) || !existsSync(sourceCli)) {
+    throw new Error('找不到 skill 文件；请从完整安装包运行，或用 --dir 指定目标目录。')
+  }
+  const target = dirArg ? resolve(dirArg) : join(homedir(), '.agents', 'skills', 'yapi-doc')
+  mkdirSync(target, { recursive: true })
+  const targetCli = join(target, 'yapi-doc.mjs')
+  copyFileSync(sourceCli, targetCli)
+  chmodSync(targetCli, 0o755)
+  const windowsTarget = target.replace(/\//gu, '\\')
+  const content = readFileSync(sourceSkill, 'utf8')
+    .split('$HOME/.dsh/skills/yapi-doc')
+    .join(target)
+    .split('%USERPROFILE%\\.dsh\\skills\\yapi-doc')
+    .join(windowsTarget)
+  writeFileSync(join(target, 'SKILL.md'), content, 'utf8')
+  console.log('Skill installed: ' + target)
+  console.log('Run: node "' + targetCli + '" <doc-id>')
+}
+
+/* ------------------------------------------------------------------ */
 /* YAPI session                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -535,13 +570,15 @@ function printHelp() {
 
 用法：
   yapi-doc <文档ID|链接> [选项]
-  yapi-doc --search <关键字> [--project <项目ID>]
+  yapi-doc --search <关键字> --project <项目ID>
+  yapi-doc install-skill [--dir <目录>]
 
 选项：
   --json          输出结构化 JSON（默认 Markdown）
   --full          额外输出返回体示例（默认只输出返回字段说明）
   --no-fields     不输出请求/返回字段说明
   --project <id>  --search 使用的项目 ID（必填）
+  --dir <目录>    install-skill 的目标目录（默认 ~/.agents/skills/yapi-doc）
   -h, --help      显示帮助
 
 账号：
@@ -552,7 +589,9 @@ function printHelp() {
   yapi-doc 10001
   yapi-doc https://your-yapi.example.com/project/1/interface/api/10001
   yapi-doc --search warehouse --project 1
-  yapi-doc 10001 --full --json`)
+  yapi-doc 10001 --full --json
+  yapi-doc install-skill
+  yapi-doc install-skill --dir ~/.claude/skills/yapi-doc`)
 }
 
 function parseArgs(argv) {
@@ -607,6 +646,28 @@ function parseArgs(argv) {
 }
 
 async function main() {
+  if (process.argv[2] === 'install-skill') {
+    let target = ''
+    for (let index = 3; index < process.argv.length; index += 1) {
+      const arg = process.argv[index]
+      if (arg === '-h' || arg === '--help') {
+        printHelp()
+        return
+      }
+      if (arg === '--dir') {
+        target = process.argv[index + 1] || ''
+        if (target === '') throw new Error('--dir 需要一个目录')
+        index += 1
+      } else if (arg.startsWith('--dir=')) {
+        target = arg.slice('--dir='.length)
+        if (target === '') throw new Error('--dir 需要一个目录')
+      } else {
+        throw new Error('未知选项：' + arg)
+      }
+    }
+    installSkill(target)
+    return
+  }
   const options = parseArgs(process.argv.slice(2))
   if (options.help) {
     printHelp()
