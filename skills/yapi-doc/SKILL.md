@@ -30,6 +30,7 @@ DSH 用户由插件自动注册，不需要执行本节。
 
 ```bash
 npm install -g github:jinshan3690/dsh-plugin-yapi
+yapi-doc sync-skills                   # 自动同步到检测到的 Trae / WorkBuddy / Codex / 通用 Agent Skills / DSH
 yapi-doc install-skill                 # 默认装到 ~/.agents/skills/yapi-doc
 yapi-doc install-skill --dir ~/.trae/skills/yapi-doc       # Trae
 yapi-doc install-skill --dir ~/.workbuddy/skills/yapi-doc  # WorkBuddy

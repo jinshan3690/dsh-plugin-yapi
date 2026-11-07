@@ -15,6 +15,7 @@
  *   yapi-doc 10001 --json          # structured output
  *   yapi-doc 10001 --no-fields     # skip field documentation
  *   yapi-doc install-skill         # install SKILL.md + CLI into ~/.agents/skills/yapi-doc
+ *   yapi-doc sync-skills           # install into every detected tool skill root
  */
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -328,27 +329,70 @@ function responseFields(raw) {
  * command points at the new location.
  * @param {string} dirArg - optional target directory; defaults to ~/.agents/skills/yapi-doc.
  */
-function installSkill(dirArg) {
+function copySkillTo(target) {
   const sourceDir = dirname(fileURLToPath(import.meta.url))
   const sourceSkill = join(sourceDir, 'SKILL.md')
   const sourceCli = join(sourceDir, 'yapi-doc.mjs')
   if (!existsSync(sourceSkill) || !existsSync(sourceCli)) {
     throw new Error('找不到 skill 文件；请从完整安装包运行，或用 --dir 指定目标目录。')
   }
-  const target = dirArg ? resolve(dirArg) : join(homedir(), '.agents', 'skills', 'yapi-doc')
-  mkdirSync(target, { recursive: true })
-  const targetCli = join(target, 'yapi-doc.mjs')
-  copyFileSync(sourceCli, targetCli)
+  const directory = resolve(target)
+  mkdirSync(directory, { recursive: true })
+  const targetCli = join(directory, 'yapi-doc.mjs')
+  if (resolve(targetCli) !== resolve(sourceCli)) copyFileSync(sourceCli, targetCli)
   chmodSync(targetCli, 0o755)
-  const windowsTarget = target.replace(/\//gu, '\\')
+  const windowsTarget = directory.replace(/\//gu, '\\')
   const content = readFileSync(sourceSkill, 'utf8')
     .split('$HOME/.dsh/skills/yapi-doc')
-    .join(target)
+    .join(directory)
     .split('%USERPROFILE%\\.dsh\\skills\\yapi-doc')
     .join(windowsTarget)
-  writeFileSync(join(target, 'SKILL.md'), content, 'utf8')
+  const targetSkill = join(directory, 'SKILL.md')
+  if (resolve(targetSkill) !== resolve(sourceSkill)) writeFileSync(targetSkill, content, 'utf8')
+  return directory
+}
+
+function installSkill(dirArg) {
+  const target = copySkillTo(dirArg || join(homedir(), '.agents', 'skills', 'yapi-doc'))
   console.log('Skill installed: ' + target)
-  console.log('Run: node "' + targetCli + '" <doc-id>')
+  console.log('Run: node "' + join(target, 'yapi-doc.mjs') + '" <doc-id>')
+}
+
+function detectedSkillTargets(extraDirs) {
+  const home = homedir()
+  const targets = []
+  const add = function (label, dir) {
+    const resolved = resolve(dir)
+    if (!targets.some(function (item) { return item.dir === resolved })) {
+      targets.push({ label, dir: resolved })
+    }
+  }
+  if (existsSync(join(home, '.trae'))) add('Trae', join(home, '.trae', 'skills', 'yapi-doc'))
+  if (existsSync(join(home, '.workbuddy'))) add('WorkBuddy', join(home, '.workbuddy', 'skills', 'yapi-doc'))
+  if (existsSync(join(home, '.qoder'))) add('Qoder', join(home, '.qoder', 'skills', 'yapi-doc'))
+  if (existsSync(join(home, '.claude'))) add('Claude Code', join(home, '.claude', 'skills', 'yapi-doc'))
+  if (existsSync(join(home, '.codex'))) add('Codex', join(home, '.codex', 'skills', 'yapi-doc'))
+  add('Agent Skills（Qoder / 通用）', join(home, '.agents', 'skills', 'yapi-doc'))
+  if (existsSync(DSH_HOME)) add('DSH', join(DSH_HOME, 'skills', 'yapi-doc'))
+  for (const dir of extraDirs) add('custom', dir)
+  return targets
+}
+
+function syncSkills(extraDirs, dryRun) {
+  const targets = detectedSkillTargets(extraDirs)
+  console.log('yapi-doc skill 同步：')
+  for (const item of targets) {
+    if (dryRun) {
+      console.log('  - ' + item.label + '  ' + item.dir)
+      continue
+    }
+    const target = copySkillTo(item.dir)
+    console.log('  ✓ ' + item.label + '  ' + target)
+  }
+  if (!dryRun) {
+    console.log('')
+    console.log('重启对应应用后生效。')
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -572,6 +616,7 @@ function printHelp() {
   yapi-doc <文档ID|链接> [选项]
   yapi-doc --search <关键字> --project <项目ID>
   yapi-doc install-skill [--dir <目录>]
+  yapi-doc sync-skills [--dir <目录> ...] [--dry-run]
 
 选项：
   --json          输出结构化 JSON（默认 Markdown）
@@ -579,6 +624,7 @@ function printHelp() {
   --no-fields     不输出请求/返回字段说明
   --project <id>  --search 使用的项目 ID（必填）
   --dir <目录>    install-skill 的目标目录（默认 ~/.agents/skills/yapi-doc）
+  --dry-run       sync-skills 只显示检测到的目标，不写入
   -h, --help      显示帮助
 
 账号：
@@ -591,7 +637,9 @@ function printHelp() {
   yapi-doc --search warehouse --project 1
   yapi-doc 10001 --full --json
   yapi-doc install-skill
-  yapi-doc install-skill --dir ~/.claude/skills/yapi-doc`)
+  yapi-doc install-skill --dir ~/.claude/skills/yapi-doc
+  yapi-doc sync-skills
+  yapi-doc sync-skills --dry-run`)
 }
 
 function parseArgs(argv) {
@@ -646,6 +694,37 @@ function parseArgs(argv) {
 }
 
 async function main() {
+  if (process.argv[2] === 'sync-skills') {
+    const dirs = []
+    let dryRun = false
+    for (let index = 3; index < process.argv.length; index += 1) {
+      const arg = process.argv[index]
+      if (arg === '-h' || arg === '--help') {
+        printHelp()
+        return
+      }
+      if (arg === '--dry-run') {
+        dryRun = true
+        continue
+      }
+      if (arg === '--dir') {
+        const dir = process.argv[index + 1] || ''
+        if (dir === '') throw new Error('--dir 需要一个目录')
+        dirs.push(dir)
+        index += 1
+        continue
+      }
+      if (arg.startsWith('--dir=')) {
+        const dir = arg.slice('--dir='.length)
+        if (dir === '') throw new Error('--dir 需要一个目录')
+        dirs.push(dir)
+        continue
+      }
+      throw new Error('未知选项：' + arg)
+    }
+    syncSkills(dirs, dryRun)
+    return
+  }
   if (process.argv[2] === 'install-skill') {
     let target = ''
     for (let index = 3; index < process.argv.length; index += 1) {

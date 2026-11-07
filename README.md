@@ -68,7 +68,16 @@ yapi-doc <doc-id>
 ```
 
 - `install-skill` 默认把 `SKILL.md` 和 CLI 装到 `~/.agents/skills/yapi-doc`；支持 `SKILL.md` 的 agent 可直接读取。
-- 其他 agent 的 skills 目录用 `--dir`：
+- **一键同步到所有已检测到的工具**：
+
+  ```bash
+  yapi-doc sync-skills
+  yapi-doc sync-skills --dry-run   # 只显示会写到哪些目录
+  ```
+
+  会自动检测 Trae、WorkBuddy、Codex、Qoder/通用 Agent Skills、DSH 等目录；`--dir` 可追加自定义目录。同步完重启对应应用。
+
+- 也可以单独指定目录：
 
   ```bash
   # Trae

@@ -22,3 +22,23 @@ test('yapi-doc install-skill copies the CLI and rewrites the skill paths', () =>
   assert.ok(skill.includes(target), 'SKILL.md points at the install directory')
   assert.ok(!skill.includes('$HOME/.dsh/skills/yapi-doc'), 'old paths rewritten')
 })
+
+test('yapi-doc sync-skills detects and updates known tool roots', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'yapi-doc-sync-'))
+  fs.mkdirSync(path.join(home, '.trae'))
+  fs.mkdirSync(path.join(home, '.workbuddy'))
+  fs.mkdirSync(path.join(home, '.dsh'))
+  const dshHome = path.join(home, '.dsh')
+  execFileSync(process.execPath, [path.join(root, 'skills/yapi-doc/yapi-doc.mjs'), 'sync-skills'], {
+    encoding: 'utf8',
+    env: { ...process.env, HOME: home, DSH_HOME: dshHome },
+  })
+  for (const relative of ['.trae', '.workbuddy', '.agents', '.dsh']) {
+    const target = path.join(home, relative, 'skills', 'yapi-doc')
+    assert.ok(fs.existsSync(path.join(target, 'SKILL.md')), relative + ' SKILL.md')
+    const cli = path.join(target, 'yapi-doc.mjs')
+    assert.ok(fs.existsSync(cli), relative + ' CLI')
+    assert.ok(fs.readFileSync(path.join(target, 'SKILL.md'), 'utf8').includes(target), relative + ' paths')
+  }
+  assert.ok(!fs.existsSync(path.join(home, '.codex')), 'does not create absent tool dirs')
+})
