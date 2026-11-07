@@ -71,8 +71,15 @@ yapi-doc <doc-id>
 - 其他 agent 的 skills 目录用 `--dir`：
 
   ```bash
-  yapi-doc install-skill --dir <skills目录>/yapi-doc
+  # Trae
+  yapi-doc install-skill --dir ~/.trae/skills/yapi-doc
+  # WorkBuddy
+  yapi-doc install-skill --dir ~/.workbuddy/skills/yapi-doc
+  # Qoder / 其他 Agent Skills
+  yapi-doc install-skill                  # ~/.agents/skills/yapi-doc
   ```
+
+  > 装完请**完全重启**对应工具。不同工具对 skill 的展示方式不同，可能出现在技能列表里，不一定有 `/yapi-doc` 斜杠命令；没有的话直接运行 `yapi-doc <doc-id>`。
 
 - 不想全局安装时：
 

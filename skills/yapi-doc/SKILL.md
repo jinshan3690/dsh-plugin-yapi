@@ -1,12 +1,11 @@
 ---
 name: yapi-doc
 description: Read a YAPI interface document by ID, full URL, or path keyword. Use when a task needs an API method, path, headers, parameters, request body, response fields, or response example. The bundled CLI reads the local YAPI account and prints Markdown in one command.
-whenToUse: The user mentions YAPI, an interface document ID (for example 10001), an API path, or asks for the request or response fields of an API.
 ---
 
 # YAPI 文档读取
 
-优先用随包 CLI 读取，不要打开 YAPI 页面逐个翻，也不要让用户反复贴文档。
+当任务需要 YAPI 接口的方法、路径、请求头、参数、请求/返回字段或返回示例时使用本 skill。优先用随包 CLI 读取，不要打开 YAPI 页面逐个翻，也不要让用户反复贴文档。
 
 ## 命令
 
@@ -32,6 +31,8 @@ DSH 用户由插件自动注册，不需要执行本节。
 ```bash
 npm install -g github:jinshan3690/dsh-plugin-yapi
 yapi-doc install-skill                 # 默认装到 ~/.agents/skills/yapi-doc
+yapi-doc install-skill --dir ~/.trae/skills/yapi-doc       # Trae
+yapi-doc install-skill --dir ~/.workbuddy/skills/yapi-doc  # WorkBuddy
 yapi-doc install-skill --dir <目录>    # 其他 agent 的 skills 目录
 ```
 
