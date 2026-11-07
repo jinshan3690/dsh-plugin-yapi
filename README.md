@@ -75,7 +75,7 @@ yapi-doc <doc-id>
   yapi-doc sync-skills --dry-run   # 只显示会写到哪些目录
   ```
 
-  会自动检测 Trae、WorkBuddy、Codex、Qoder/通用 Agent Skills、DSH 等目录；`--dir` 可追加自定义目录。同步完重启对应应用。
+  会自动检测 Trae、WorkBuddy、Qoder CN、GitHub Copilot、CodeBuddy、Claude Code、Cursor、Gemini CLI、Amp、OpenCode、Codex/通用 Agent Skills、DSH 等目录；`--dir` 可追加自定义目录。同步完重启对应应用。
 
 - 也可以单独指定目录：
 

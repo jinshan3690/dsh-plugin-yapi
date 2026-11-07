@@ -27,13 +27,16 @@ test('yapi-doc sync-skills detects and updates known tool roots', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'yapi-doc-sync-'))
   fs.mkdirSync(path.join(home, '.trae'))
   fs.mkdirSync(path.join(home, '.workbuddy'))
+  fs.mkdirSync(path.join(home, '.qoder-cn'))
+  fs.mkdirSync(path.join(home, '.copilot'))
+  fs.mkdirSync(path.join(home, '.codebuddy'))
   fs.mkdirSync(path.join(home, '.dsh'))
   const dshHome = path.join(home, '.dsh')
   execFileSync(process.execPath, [path.join(root, 'skills/yapi-doc/yapi-doc.mjs'), 'sync-skills'], {
     encoding: 'utf8',
     env: { ...process.env, HOME: home, DSH_HOME: dshHome },
   })
-  for (const relative of ['.trae', '.workbuddy', '.agents', '.dsh']) {
+  for (const relative of ['.trae', '.workbuddy', '.qoder-cn', '.copilot', '.codebuddy', '.agents', '.dsh']) {
     const target = path.join(home, relative, 'skills', 'yapi-doc')
     assert.ok(fs.existsSync(path.join(target, 'SKILL.md')), relative + ' SKILL.md')
     const cli = path.join(target, 'yapi-doc.mjs')

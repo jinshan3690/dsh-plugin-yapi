@@ -358,6 +358,38 @@ function installSkill(dirArg) {
   console.log('Run: node "' + join(target, 'yapi-doc.mjs') + '" <doc-id>')
 }
 
+const HOME_AGENTS = [
+  ['Trae', '.trae', '.trae/skills'],
+  ['WorkBuddy', '.workbuddy', '.workbuddy/skills'],
+  ['Qoder CN', '.qoder-cn', '.qoder-cn/skills'],
+  ['Qoder', '.qoder', '.qoder/skills'],
+  ['GitHub Copilot', '.copilot', '.copilot/skills'],
+  ['CodeBuddy', '.codebuddy', '.codebuddy/skills'],
+  ['Claude Code', '.claude', '.claude/skills'],
+  ['Cursor', '.cursor', '.cursor/skills'],
+  ['Gemini CLI', '.gemini', '.gemini/skills'],
+  ['Droid', '.factory', '.factory/skills'],
+  ['fx', '.fx', '.fx/skills'],
+  ['Kilo Code', '.kilo', '.kilo/skills'],
+  ['Augment', '.augment', '.augment/skills'],
+  ['Continue', '.continue', '.continue/skills'],
+  ['AiderDesk', '.aider-desk', '.aider-desk/skills'],
+  ['Goose', '.goose', '.goose/skills'],
+  ['Kiro', '.kiro', '.kiro/skills'],
+  ['Qwen Code', '.qwen', '.qwen/skills'],
+  ['CodeArts', '.codeartsdoer', '.codeartsdoer/skills'],
+  ['Codemaker', '.codemaker', '.codemaker/skills'],
+  ['Code Studio', '.codestudio', '.codestudio/skills'],
+  ['Command Code', '.commandcode', '.commandcode/skills'],
+  ['Firebender', '.firebender', '.firebender/skills'],
+  ['ForgeCode', '.forge', '.forge/skills'],
+  ['Amp', '.config/amp', '.config/agents/skills'],
+  ['OpenCode', '.config/opencode', '.config/opencode/skills'],
+  ['Devin', '.config/devin', '.config/devin/skills'],
+  ['Crush', '.config/crush', '.config/crush/skills'],
+  ['Cortex', '.snowflake/cortex', '.snowflake/cortex/skills'],
+]
+
 function detectedSkillTargets(extraDirs) {
   const home = homedir()
   const targets = []
@@ -367,12 +399,10 @@ function detectedSkillTargets(extraDirs) {
       targets.push({ label, dir: resolved })
     }
   }
-  if (existsSync(join(home, '.trae'))) add('Trae', join(home, '.trae', 'skills', 'yapi-doc'))
-  if (existsSync(join(home, '.workbuddy'))) add('WorkBuddy', join(home, '.workbuddy', 'skills', 'yapi-doc'))
-  if (existsSync(join(home, '.qoder'))) add('Qoder', join(home, '.qoder', 'skills', 'yapi-doc'))
-  if (existsSync(join(home, '.claude'))) add('Claude Code', join(home, '.claude', 'skills', 'yapi-doc'))
-  if (existsSync(join(home, '.codex'))) add('Codex', join(home, '.codex', 'skills', 'yapi-doc'))
-  add('Agent Skills（Qoder / 通用）', join(home, '.agents', 'skills', 'yapi-doc'))
+  for (const [label, detect, skills] of HOME_AGENTS) {
+    if (existsSync(join(home, detect))) add(label, join(home, skills, 'yapi-doc'))
+  }
+  add('Agent Skills（Codex / Cline / Zed / 通用）', join(home, '.agents', 'skills', 'yapi-doc'))
   if (existsSync(DSH_HOME)) add('DSH', join(DSH_HOME, 'skills', 'yapi-doc'))
   for (const dir of extraDirs) add('custom', dir)
   return targets
