@@ -19,7 +19,7 @@
 要求：DSH 桌面端（或 `dsh web` 使用的 profile）、Node 20+、能访问你的 YAPI 服务。
 
 ```bash
-git clone <your-repo-url> dsh-plugin-yapi
+git clone https://github.com/jinshan3690/dsh-plugin-yapi.git
 cd dsh-plugin-yapi
 ./install.sh          # 默认 desktop profile
 # 或
