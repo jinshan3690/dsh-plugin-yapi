@@ -38,6 +38,7 @@ function boot(config) {
   const routes = []
   const ctx = {
     logger: { info() {}, warn() {} },
+    skills: { registerProvider() { return () => {} } },
     inject(_deps, callback) {
       callback({
         connection: {
@@ -138,4 +139,31 @@ test('missing credentials are rejected before any network call', async () => {
 
 test.after(() => {
   fs.rmSync(home, { recursive: true, force: true })
+})
+
+test('registers the bundled yapi-doc skill when no user copy exists', async () => {
+  let provider = null
+  const ctx = {
+    logger: { info() {}, warn() {} },
+    skills: {
+      registerProvider(create) {
+        provider = create({ signal: new AbortController().signal, invalidate() {} })
+        return () => {}
+      },
+    },
+    inject(_deps, callback) {
+      callback({ connection: { fetch: { register() { return async () => {} } } } })
+    },
+  }
+  apply(ctx, baseConfig)
+  assert.ok(provider, 'bundled skill provider registered')
+  const candidates = await provider.list()
+  assert.equal(candidates.length, 1)
+  assert.equal(candidates[0].name, 'yapi-doc')
+  assert.equal(candidates[0].source, 'bundled')
+  const loaded = await provider.get(candidates[0])
+  assert.equal(loaded.name, 'yapi-doc')
+  assert.match(loaded.content, /yapi-doc\.mjs/u)
+  assert.equal(loaded.resourceBase.kind, 'directory')
+  assert.ok(fs.existsSync(path.join(loaded.resourceBase.path, 'yapi-doc.mjs')))
 })

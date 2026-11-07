@@ -14,9 +14,11 @@
  * Both routes sit on DSH's authenticated `/api` channel, so the panel talks to
  * origin-relative URLs and the YAPI origin is never fetched from the browser.
  */
-import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import {
   normalizeBaseUrl,
@@ -26,7 +28,10 @@ import {
 } from './lib/core.js'
 
 export const name = 'yapi'
-export const inject = ['connection']
+export const inject = ['connection', 'skills']
+
+/** Directory of this host module; the packaged skill and CLI live below it. */
+const HERE = dirname(fileURLToPath(import.meta.url))
 
 /** A failure with a stable machine-readable code for the panel's error box. */
 class YapiError extends Error {
@@ -85,6 +90,63 @@ function harnessHome() {
 
 /** Location of the optional credential file written by the installer. */
 export const CONFIG_FILE = join(harnessHome(), 'dsh-plugin-yapi.json')
+
+const BUNDLED_SKILL_NAME = 'yapi-doc'
+const BUNDLED_SKILL_PROVIDER = 'yapi-doc-plugin'
+const BUNDLED_SKILL_DESCRIPTION =
+  'Read a YAPI interface document by ID, full URL, or path keyword. Use when a task needs an API method, path, headers, parameters, request body, response fields, or response example. The bundled CLI reads the local YAPI account and prints Markdown in one command.'
+const BUNDLED_SKILL_WHEN =
+  'The user mentions YAPI, an interface document ID (for example 10001), an API path, or asks for the request or response fields of an API.'
+
+/**
+ * Register the packaged `yapi-doc` skill when the plugin was installed by
+ * `dsh plugin add` (no `~/.dsh/skills` copy present). The installer path still
+ * wins because the user skill root ranks above this bundled provider.
+ * @param {any} ctx - DSH host context (must carry the `skills` service).
+ */
+function registerBundledSkill(ctx) {
+  const skillDir = join(HERE, 'skills', 'yapi-doc')
+  const skillPath = join(skillDir, 'SKILL.md')
+  if (!existsSync(skillPath)) return
+  const userSkill = join(harnessHome(), 'skills', BUNDLED_SKILL_NAME, 'SKILL.md')
+  if (existsSync(userSkill)) return
+
+  ctx.skills.registerProvider(function () {
+    return {
+      name: BUNDLED_SKILL_PROVIDER,
+      async list() {
+        return [
+          {
+            name: BUNDLED_SKILL_NAME,
+            description: BUNDLED_SKILL_DESCRIPTION,
+            whenToUse: BUNDLED_SKILL_WHEN,
+            source: 'bundled',
+            provider: BUNDLED_SKILL_PROVIDER,
+            rank: 1000,
+            path: skillPath,
+          },
+        ]
+      },
+      async get(candidate) {
+        if (!candidate || candidate.name !== BUNDLED_SKILL_NAME) return undefined
+        const raw = await readFile(skillPath, 'utf8')
+        const body = raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/u, '').trim()
+        const content = body.split('$HOME/.dsh/skills/yapi-doc').join(skillDir)
+        return {
+          name: BUNDLED_SKILL_NAME,
+          description: BUNDLED_SKILL_DESCRIPTION,
+          whenToUse: BUNDLED_SKILL_WHEN,
+          invocation: { modelInvocable: true, userInvocable: true },
+          source: 'bundled',
+          provider: BUNDLED_SKILL_PROVIDER,
+          resourceBase: { kind: 'directory', path: skillDir },
+          path: skillPath,
+          content,
+        }
+      },
+    }
+  })
+}
 
 /**
  * Read the installer-written config file. Missing or malformed files are not a
@@ -289,6 +351,7 @@ function createYapiClient(settings, logger) {
  * @param {Record<string, unknown>} [config] - plugin row config.
  */
 export function apply(ctx, config = {}) {
+  registerBundledSkill(ctx)
   // Mutable so POST /api/yapi/settings can swap the account without a restart.
   const state = {
     settings: readConfig(config),
