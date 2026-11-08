@@ -1,5 +1,7 @@
 # dsh-plugin-yapi
 
+[![npm](https://img.shields.io/npm/v/dsh-plugin-yapi.svg)](https://www.npmjs.com/package/dsh-plugin-yapi)
+
 给 DeepSeek Harness（DSH）左侧加一个 **YAPI** 面板：按文档 ID / 链接打开接口、按路径或标题搜索、多标签切换、字段树、勾选复制。附带一个 `yapi-doc` skill 和零依赖 CLI，AI 或终端可以直接读取 YAPI 文档。
 
 > 仓库不包含任何真实 YAPI 地址、账号或密码；安装后在面板或环境变量里配置。
@@ -21,7 +23,7 @@
 先**完全退出 DSH**（桌面端要关闭应用，不是最小化），然后：
 
 ```bash
-dsh plugin --profile desktop add github:jinshan3690/dsh-plugin-yapi
+dsh plugin --profile desktop add dsh-plugin-yapi
 ```
 
 - 如果 `dsh` 不在 PATH，macOS 桌面端可以用自带 CLI：
@@ -34,6 +36,7 @@ dsh plugin --profile desktop add github:jinshan3690/dsh-plugin-yapi
 - web profile 把 `--profile desktop` 换成 `--profile web`。
 - 命令会自动把插件加进 profile 的 bundle，并注册插件自带的 `yapi-doc` skill，不需要再复制文件。
 - 安装完成后重新打开 DSH。
+- 如果 npm 暂时不可用，也可以把包名换成 `github:jinshan3690/dsh-plugin-yapi`。
 
 ## 配置
 
@@ -62,12 +65,13 @@ dsh plugin --profile desktop add github:jinshan3690/dsh-plugin-yapi
 CLI 是零依赖 Node 脚本，不需要 DSH。直接命令行安装：
 
 ```bash
-npm install -g github:jinshan3690/dsh-plugin-yapi
+npm install -g dsh-plugin-yapi
 yapi-doc install-skill
 yapi-doc <doc-id>
 ```
 
 - `install-skill` 默认把 `SKILL.md` 和 CLI 装到 `~/.agents/skills/yapi-doc`；支持 `SKILL.md` 的 agent 可直接读取。
+- 如果 npm 暂时不可用，也可以 `npm install -g github:jinshan3690/dsh-plugin-yapi`。
 - **一键同步到所有已检测到的工具**：
 
   ```bash
@@ -138,7 +142,7 @@ npm uninstall -g dsh-plugin-yapi
 rm -rf ~/.agents/skills/yapi-doc   # 按实际安装目录删除
 ```
 
-更新时重新执行对应的安装命令即可。账号文件 `~/.dsh/dsh-plugin-yapi.json` 会保留，按需手动删除。
+更新：`npm update -g dsh-plugin-yapi`，DSH 重新执行 `dsh plugin ... add dsh-plugin-yapi` 即可。账号文件 `~/.dsh/dsh-plugin-yapi.json` 会保留，按需手动删除。
 
 ## 开发
 

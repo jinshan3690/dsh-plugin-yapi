@@ -4,3 +4,5 @@ dist/
 *.log
 .env
 dsh-plugin-yapi.json
+
+*.tgz

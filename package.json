@@ -1,7 +1,6 @@
 {
   "name": "dsh-plugin-yapi",
   "version": "1.4.0",
-  "private": true,
   "description": "YAPI 接口文档面板 for DeepSeek Harness：搜索、多标签、字段树、勾选复制，附带 yapi-doc skill 与零依赖 CLI。",
   "type": "module",
   "main": "index.js",
@@ -41,10 +40,29 @@
     "dsh-plugin",
     "deepseek-harness",
     "yapi",
-    "api-docs"
+    "yapi-doc",
+    "api-docs",
+    "api-documentation",
+    "skills"
   ],
   "bin": {
     "yapi-doc": "bin/yapi-doc.mjs"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "author": "jinshan3690",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jinshan3690/dsh-plugin-yapi.git"
+  },
+  "homepage": "https://github.com/jinshan3690/dsh-plugin-yapi#readme",
+  "bugs": {
+    "url": "https://github.com/jinshan3690/dsh-plugin-yapi/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node --test",
+    "prepublishOnly": "node --test"
+  }
 }
