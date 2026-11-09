@@ -638,6 +638,32 @@ function renderDoc(doc, requestFieldRows, responseFieldRows, options) {
   return lines.join('\n')
 }
 
+function renderGlobalSearch(keyword, items, projects) {
+  const lines = ['# YAPI 全局搜索：' + keyword]
+  if (projects.length > 0) {
+    lines.push('项目匹配：' + projects.map((project) => project.name + '（#' + project.id + '）').join(' / '))
+  }
+  lines.push('')
+  for (const item of items) {
+    const project = item.projectName
+      ? '（' + item.projectName + ' #' + item.projectId + '）'
+      : item.projectId
+        ? '（项目 #' + item.projectId + '）'
+        : ''
+    lines.push(
+      String(item.id) +
+        '  ' +
+        String(item.method).padEnd(6, ' ') +
+        '  ' +
+        String(item.path) +
+        '  — ' +
+        String(item.title) +
+        project,
+    )
+  }
+  return lines.join('\n')
+}
+
 function renderSearch(projectId, projectName, total, keyword, matches) {
   const lines = ['# YAPI 接口搜索：' + keyword]
   lines.push('项目：' + projectId + (projectName ? '（' + projectName + '）' : '') + '，共 ' + total + ' 个接口，' + matches.length + ' 个匹配')
@@ -658,6 +684,7 @@ function printHelp() {
 用法：
   yapi-doc <文档ID|链接> [选项]
   yapi-doc --search <关键字> --project <项目ID>
+  yapi-doc --search <关键字> --global
   yapi-doc install-skill [--dir <目录>]
   yapi-doc sync-skills [--dir <目录> ...] [--dry-run]
 
@@ -665,7 +692,8 @@ function printHelp() {
   --json          输出结构化 JSON（默认 Markdown）
   --full          额外输出返回体示例（默认只输出返回字段说明）
   --no-fields     不输出请求/返回字段说明
-  --project <id>  --search 使用的项目 ID（必填）
+  --project <id>  --search 搜当前项目（必填）
+  --global        --search 搜所有项目（YAPI /api/project/search）
   --dir <目录>    install-skill 的目标目录（默认 ~/.agents/skills/yapi-doc）
   --dry-run       sync-skills 只显示检测到的目标，不写入
   -h, --help      显示帮助
@@ -691,6 +719,7 @@ function parseArgs(argv) {
     target: '',
     search: '',
     projectId: 0,
+    global: false,
     json: false,
     full: false,
     noFields: false,
@@ -712,6 +741,10 @@ function parseArgs(argv) {
     }
     if (arg === '--no-fields') {
       options.noFields = true
+      continue
+    }
+    if (arg === '--global') {
+      options.global = true
       continue
     }
     if (arg === '--project') {
@@ -804,8 +837,61 @@ async function main() {
   const session = await createSession(settings)
 
   if (options.search !== '') {
+    if (options.global) {
+      const data = await session.get('/api/project/search?q=' + encodeURIComponent(options.search))
+      const rows = Array.isArray(data?.interface) ? data.interface.slice(0, 10) : []
+      const projectNames = new Map()
+      const nameOf = async function (projectId) {
+        if (projectNames.has(projectId)) return projectNames.get(projectId)
+        let name = ''
+        try {
+          const project = await session.get('/api/project/get?id=' + encodeURIComponent(projectId))
+          name = String(project?.name ?? '')
+        } catch {
+          name = ''
+        }
+        projectNames.set(projectId, name)
+        return name
+      }
+      const items = []
+      for (const row of rows) {
+        const id = Number(row._id)
+        if (!Number.isSafeInteger(id) || id <= 0) continue
+        let raw = null
+        try {
+          raw = await session.get('/api/interface/get?id=' + id)
+        } catch {
+          raw = null
+        }
+        const projectId = Number(raw?.project_id || row.projectId || 0)
+        items.push({
+          id,
+          method: String(raw?.method ?? '').toUpperCase(),
+          path: String(raw?.path ?? ''),
+          title: String(raw?.title ?? row.title ?? ''),
+          projectId,
+          projectName: projectId > 0 ? await nameOf(projectId) : '',
+        })
+      }
+      const projects = (Array.isArray(data?.project) ? data.project : []).slice(0, 10).map((row) => ({
+        id: Number(row._id),
+        name: String(row.name ?? ''),
+      }))
+      if (options.json) {
+        console.log(
+          JSON.stringify(
+            { ok: true, data: { global: true, keyword: options.search, items, projects } },
+            null,
+            2,
+          ),
+        )
+        return
+      }
+      console.log(renderGlobalSearch(options.search, items, projects))
+      return
+    }
     if (!Number.isSafeInteger(options.projectId) || options.projectId <= 0) {
-      throw new Error('请用 --project <项目ID> 指定搜索范围')
+      throw new Error('请用 --project <项目ID> 指定当前项目，或用 --global 搜所有项目')
     }
     const project = await session.get('/api/project/get?id=' + encodeURIComponent(options.projectId)).catch(() => null)
     const data = await session.get(

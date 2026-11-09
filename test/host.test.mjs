@@ -29,6 +29,42 @@ globalThis.fetch = async (url, options = {}) => {
         JSON.stringify({ errcode: 0, msg: 'ok', data: { username: 'tester', email: body.email } }),
     }
   }
+  if (String(url).includes('/api/project/search')) {
+    return {
+      headers: { getSetCookie: () => [] },
+      text: async () =>
+        JSON.stringify({
+          errcode: 0,
+          data: {
+            project: [{ _id: 9, name: 'Demo Project' }],
+            group: [],
+            interface: [{ _id: 10001, title: 'Demo Interface', projectId: 9 }],
+          },
+        }),
+    }
+  }
+  if (String(url).includes('/api/interface/get')) {
+    return {
+      headers: { getSetCookie: () => [] },
+      text: async () =>
+        JSON.stringify({
+          errcode: 0,
+          data: {
+            _id: 10001,
+            project_id: 9,
+            title: 'Demo Interface',
+            path: '/business/closure/config',
+            method: 'POST',
+          },
+        }),
+    }
+  }
+  if (String(url).includes('/api/project/get')) {
+    return {
+      headers: { getSetCookie: () => [] },
+      text: async () => JSON.stringify({ errcode: 0, data: { _id: 9, name: 'Demo Project', basepath: '' } }),
+    }
+  }
   throw new Error('unexpected fetch: ' + String(url))
 }
 
@@ -188,4 +224,21 @@ test('LDAP login uses /api/user/login_by_ldap and persists authType', async () =
   assert.ok(loginCalls.some((url) => url.endsWith('/api/user/login_by_ldap')))
   const stored = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'))
   assert.equal(stored.authType, 'ldap')
+})
+
+test('global search uses YAPI project/search and enriches paths', async () => {
+  const { routes } = boot(baseConfig)
+  const searchRoute = routes.find((item) => item.path === '/api/yapi/search')
+  assert.ok(searchRoute, 'search route registered')
+  const response = await searchRoute.fetch({
+    method: 'POST',
+    json: async () => ({ global: true, keyword: 'business/closure/config' }),
+  })
+  const payload = await response.json()
+  assert.equal(payload.ok, true)
+  assert.equal(payload.data.global, true)
+  assert.equal(payload.data.items[0].id, 10001)
+  assert.equal(payload.data.items[0].path, '/business/closure/config')
+  assert.equal(payload.data.items[0].projectId, 9)
+  assert.equal(payload.data.projects[0].id, 9)
 })

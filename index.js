@@ -431,6 +431,50 @@ export function apply(ctx, config = {}) {
     return list
   }
 
+  async function handleGlobalSearch(keyword) {
+    const data = await state.client.getJson('/api/project/search?q=' + encodeURIComponent(keyword))
+    const rows = Array.isArray(data && data.interface) ? data.interface.slice(0, 10) : []
+    const items = (
+      await Promise.all(
+        rows.map(async function (row) {
+          const id = Number(row && row._id)
+          if (!Number.isSafeInteger(id) || id <= 0) return null
+          let raw = null
+          try {
+            raw = await state.client.getJson(`/api/interface/get?id=${id}`)
+          } catch (error) {
+            ctx.logger?.warn?.(`[yapi] 全局搜索读取接口 ${id} 失败：${describe(error)}`)
+          }
+          const projectId = Number((raw && raw.project_id) || (row && row.projectId) || 0)
+          let projectName = ''
+          if (projectId > 0) {
+            try {
+              const project = await projectOf(projectId)
+              projectName = String((project && project.name) || '')
+            } catch {
+              projectName = ''
+            }
+          }
+          return {
+            id,
+            method: String((raw && raw.method) || '').toUpperCase(),
+            path: String((raw && raw.path) || ''),
+            title: String((raw && raw.title) || (row && row.title) || ''),
+            projectId,
+            projectName,
+          }
+        }),
+      )
+    ).filter(Boolean)
+    const projects = (Array.isArray(data && data.project) ? data.project : []).slice(0, 10).map(function (row) {
+      return { id: Number(row && row._id), name: String((row && row.name) || '') }
+    })
+    return jsonResponse({
+      ok: true,
+      data: { projectId: 0, projectName: '', total: items.length, items, projects, global: true },
+    })
+  }
+
   async function handleSearch(request) {
     let body = null
     try {
@@ -438,16 +482,23 @@ export function apply(ctx, config = {}) {
     } catch {
       return jsonResponse({ ok: false, error: { code: 'BAD_REQUEST', message: '请求体必须是 JSON。' } }, 400)
     }
+    const keyword = String((body && body.keyword) ?? '').trim()
+    if (keyword === '') {
+      return jsonResponse({ ok: true, data: { projectId: 0, projectName: '', total: 0, items: [], projects: [] } })
+    }
+    if (body && body.global === true) {
+      try {
+        return await handleGlobalSearch(keyword)
+      } catch (error) {
+        return jsonResponse({ ok: false, error: { code: error.code || 'UNKNOWN', message: describe(error) } }, 200)
+      }
+    }
     const projectId = Number(body && body.projectId)
     if (!Number.isSafeInteger(projectId) || projectId <= 0) {
       return jsonResponse(
         { ok: false, error: { code: 'BAD_PROJECT', message: '请输入有效的项目 ID。' } },
         400,
       )
-    }
-    const keyword = String((body && body.keyword) ?? '').trim()
-    if (keyword === '') {
-      return jsonResponse({ ok: true, data: { projectId, projectName: '', total: 0, items: [] } })
     }
     if (body && body.refresh === true) listCache.delete(projectId)
     try {

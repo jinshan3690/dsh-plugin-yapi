@@ -26,6 +26,7 @@ window.__ModuleLoader__.load({
     const TABS_KEY = 'dsh-plugin-yapi:tabs'
     const ACTIVE_KEY = 'dsh-plugin-yapi:active-tab'
     const PROJECT_KEY = 'dsh-plugin-yapi:search-project'
+    const SEARCH_SCOPE_KEY = 'dsh-plugin-yapi:search-scope'
     const COPY_OPTIONS_KEY = 'dsh-plugin-yapi:copy-options'
     const DEFAULT_COPY_OPTIONS = {
       title: true,
@@ -683,6 +684,14 @@ window.__ModuleLoader__.load({
       '.yapi-searchpanel-close{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:0;border-radius:6px;background:transparent;color:var(--yapi-text-3);cursor:pointer;padding:0}',
       '.yapi-searchpanel-close:hover{background:var(--yapi-surface-2);color:var(--yapi-text)}',
       '.yapi-searchpanel-body{max-height:380px;overflow:auto}',
+      '.yapi-searchscope{flex:none}',
+      '.yapi-searchprojects{padding:8px 12px;border-bottom:1px solid var(--yapi-line);display:flex;flex-direction:column;gap:4px}',
+      '.yapi-searchprojects-title{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--yapi-text-3)}',
+      '.yapi-searchproject{display:flex;align-items:center;gap:8px;width:100%;border:0;border-radius:7px;background:transparent;color:var(--yapi-text-2);font-family:inherit;font-size:12.5px;padding:6px 8px;text-align:left;cursor:pointer}',
+      '.yapi-searchproject:hover{background:var(--yapi-surface)}',
+      '.yapi-searchproject-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.yapi-searchproject-id{margin-left:auto;font-family:var(--ds-font-family-code,ui-monospace,Menlo,monospace);font-size:10.5px;color:var(--yapi-text-3)}',
+      '.yapi-searchitem-project{font-size:10.5px;color:var(--yapi-text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.yapi-searchpanel-state{display:flex;align-items:center;gap:8px;padding:18px 14px;font-size:12.5px;color:var(--yapi-text-3)}',
       '.yapi-searchpanel-error{padding:14px;font-size:12.5px;color:var(--dsw-alias-state-error-primary,#dc2626);word-break:break-word}',
       '.yapi-searchitem{display:flex;align-items:center;gap:10px;width:100%;border:0;border-bottom:1px solid var(--yapi-line);background:transparent;color:inherit;text-align:left;padding:10px 12px;cursor:pointer;font-family:inherit}',
@@ -1151,8 +1160,12 @@ window.__ModuleLoader__.load({
         loading: false,
         error: '',
         items: [],
+        projects: [],
         total: 0,
         projectName: '',
+      })
+      const [searchScope, setSearchScope] = useState(function () {
+        return readStorage(SEARCH_SCOPE_KEY, 'global') === 'project' ? 'project' : 'global'
       })
       const [searchProject, setSearchProject] = useState(function () {
         return readStorage(PROJECT_KEY, '')
@@ -1504,19 +1517,22 @@ window.__ModuleLoader__.load({
           })
       }
 
-      function runSearch(keyword, projectOverride, refresh) {
+      function runSearch(keyword, projectOverride, refresh, scopeOverride) {
         const text = String(keyword === undefined || keyword === null ? '' : keyword).trim()
         if (text === '') return
+        const scope =
+          scopeOverride === 'project' || scopeOverride === 'global' ? scopeOverride : searchScope
         const project = String(
           projectOverride === undefined || projectOverride === null ? searchProject : projectOverride,
         ).trim()
-        if (!/^\d+$/.test(project)) {
+        if (scope === 'project' && !/^\d+$/.test(project)) {
           setSearch(function (previous) {
             return Object.assign({}, previous, {
               open: true,
               loading: false,
               error: project === '' ? '请先填写项目 ID' : '项目 ID 必须是数字',
               items: [],
+              projects: [],
               total: 0,
             })
           })
@@ -1530,14 +1546,19 @@ window.__ModuleLoader__.load({
             loading: true,
             error: '',
             items: [],
+            projects: [],
             total: 0,
             projectName: '',
           })
         })
+        const request =
+          scope === 'global'
+            ? { global: true, keyword: text, refresh: refresh === true }
+            : { projectId: Number(project), keyword: text, refresh: refresh === true }
         fetch('/api/yapi/search', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ projectId: Number(project), keyword: text, refresh: refresh === true }),
+          body: JSON.stringify(request),
         })
           .then(function (response) {
             return response.json().catch(function () {
@@ -1553,6 +1574,7 @@ window.__ModuleLoader__.load({
               return Object.assign({}, previous, {
                 loading: false,
                 items: Array.isArray(data.items) ? data.items : [],
+                projects: Array.isArray(data.projects) ? data.projects : [],
                 total: Number(data.total) || 0,
                 projectName: data.projectName || '',
               })
@@ -1565,6 +1587,7 @@ window.__ModuleLoader__.load({
                 loading: false,
                 error: (failure && failure.message) || String(failure),
                 items: [],
+                projects: [],
                 total: 0,
               })
             })
@@ -1597,6 +1620,23 @@ window.__ModuleLoader__.load({
         if (search.open && search.keyword !== '') {
           scheduleSearch(search.keyword, value)
         }
+      }
+
+      function changeSearchScope(next) {
+        setSearchScope(next)
+        writeStorage(SEARCH_SCOPE_KEY, next)
+        if (search.open && search.keyword !== '') {
+          runSearch(search.keyword || input, undefined, false, next)
+        }
+      }
+
+      function openSearchProject(project) {
+        const projectId = String(project.id)
+        setSearchProject(projectId)
+        writeStorage(PROJECT_KEY, projectId)
+        setSearchScope('project')
+        writeStorage(SEARCH_SCOPE_KEY, 'project')
+        runSearch(search.keyword || input, projectId, false, 'project')
       }
 
       function openSearchResult(item) {
@@ -1792,29 +1832,63 @@ window.__ModuleLoader__.load({
                   h(
                     'div',
                     { className: 'yapi-searchpanel-head' },
-                    h('span', { className: 'yapi-searchpanel-label' }, '项目'),
-                    h('input', {
-                      className: 'yapi-projectinput',
-                      value: searchProject,
-                      inputMode: 'numeric',
-                      spellCheck: false,
-                      'aria-label': '项目 ID',
-                      placeholder: '项目 ID',
-                      onChange: function (event) {
-                        changeSearchProject(event.target.value)
-                      },
-                      onKeyDown: function (event) {
-                        if (event.key === 'Enter') {
-                          event.preventDefault()
-                          runSearch(search.keyword || input)
-                        }
-                      },
-                    }),
+                    h(
+                      'div',
+                      { className: 'yapi-seg yapi-searchscope' },
+                      h(
+                        'button',
+                        {
+                          type: 'button',
+                          'data-active': searchScope === 'global' ? 'true' : 'false',
+                          onClick: function () {
+                            changeSearchScope('global')
+                          },
+                        },
+                        '全部项目',
+                      ),
+                      h(
+                        'button',
+                        {
+                          type: 'button',
+                          'data-active': searchScope === 'project' ? 'true' : 'false',
+                          onClick: function () {
+                            changeSearchScope('project')
+                          },
+                        },
+                        '当前项目',
+                      ),
+                    ),
+                    searchScope === 'project'
+                      ? h('span', { className: 'yapi-searchpanel-label' }, '项目')
+                      : null,
+                    searchScope === 'project'
+                      ? h('input', {
+                          className: 'yapi-projectinput',
+                          value: searchProject,
+                          inputMode: 'numeric',
+                          spellCheck: false,
+                          'aria-label': '项目 ID',
+                          placeholder: '项目 ID',
+                          onChange: function (event) {
+                            changeSearchProject(event.target.value)
+                          },
+                          onKeyDown: function (event) {
+                            if (event.key === 'Enter') {
+                              event.preventDefault()
+                              runSearch(search.keyword || input, undefined, false, 'project')
+                            }
+                          },
+                        })
+                      : null,
                     h(
                       'span',
                       { className: 'yapi-searchpanel-meta' },
-                      (search.projectName ? search.projectName + ' · ' : '') +
-                        (search.total > 0 ? '共 ' + search.total + ' 个接口' : ''),
+                      searchScope === 'global'
+                        ? search.total > 0
+                          ? '全部项目 · 匹配 ' + search.total
+                          : '全部项目'
+                        : (search.projectName ? search.projectName + ' · ' : '') +
+                          (search.total > 0 ? '共 ' + search.total + ' 个接口' : ''),
                     ),
                     search.items.length > 0
                       ? h('span', { className: 'yapi-searchpanel-match' }, '匹配 ' + search.items.length)
@@ -1850,6 +1924,32 @@ window.__ModuleLoader__.load({
                   h(
                     'div',
                     { className: 'yapi-searchpanel-body' },
+                    search.projects.length > 0
+                      ? h(
+                          'div',
+                          { className: 'yapi-searchprojects' },
+                          h('div', { className: 'yapi-searchprojects-title' }, '项目'),
+                          search.projects.map(function (project) {
+                            return h(
+                              'button',
+                              {
+                                key: project.id,
+                                type: 'button',
+                                className: 'yapi-searchproject',
+                                onClick: function () {
+                                  openSearchProject(project)
+                                },
+                              },
+                              h(
+                                'span',
+                                { className: 'yapi-searchproject-name' },
+                                project.name || '未命名项目',
+                              ),
+                              h('span', { className: 'yapi-searchproject-id' }, '#' + project.id),
+                            )
+                          }),
+                        )
+                      : null,
                     search.loading
                       ? h(
                           'div',
@@ -1890,6 +1990,14 @@ window.__ModuleLoader__.load({
                                     { className: 'yapi-searchitem-title' },
                                     item.title || '未命名接口',
                                   ),
+                                  item.projectId || item.projectName
+                                    ? h(
+                                        'span',
+                                        { className: 'yapi-searchitem-project' },
+                                        (item.projectName || '项目') +
+                                          (item.projectId ? ' #' + item.projectId : ''),
+                                      )
+                                    : null,
                                 ),
                                 h('span', { className: 'yapi-searchitem-id' }, '#' + item.id),
                               )
