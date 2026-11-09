@@ -191,11 +191,16 @@ function readStoredConfig() {
   }
 }
 
+/** YAPI login mode; unknown values fall back to the normal password login. */
+function normalizeAuthType(value) {
+  return String(value ?? '').trim().toLowerCase() === 'ldap' ? 'ldap' : 'normal'
+}
+
 /**
  * Atomically persist the account so the next start uses it. The temporary file
  * is created with 0600 before the rename, so the password is never briefly
  * readable by another user.
- * @param {{ baseUrl: string, email: string, password: string, timeoutMs: number }} settings - verified account.
+ * @param {{ baseUrl: string, email: string, password: string, authType: string, timeoutMs: number }} settings - verified account.
  */
 function writeConfigFile(settings) {
   const directory = dirname(CONFIG_FILE)
@@ -206,6 +211,7 @@ function writeConfigFile(settings) {
       baseUrl: settings.baseUrl,
       email: settings.email,
       password: settings.password,
+      authType: settings.authType,
       timeoutMs: settings.timeoutMs,
     },
     null,
@@ -222,7 +228,7 @@ function writeConfigFile(settings) {
  * (that path only accepts plain insert rows), while the file still carries the
  * account for a fresh start.
  * @param {Record<string, unknown>} config - loader-provided config.
- * @returns {{ baseUrl: string, email: string, password: string, timeoutMs: number }} settings.
+ * @returns {{ baseUrl: string, email: string, password: string, authType: string, timeoutMs: number }} settings.
  */
 function readConfig(config) {
   const row = config && typeof config === 'object' ? config : {}
@@ -233,6 +239,7 @@ function readConfig(config) {
     baseUrl: normalizeBaseUrl(row.baseUrl ?? env.YAPI_BASE_URL ?? stored.baseUrl ?? ''),
     email: String(row.email ?? env.YAPI_EMAIL ?? stored.email ?? '').trim(),
     password: String(row.password ?? env.YAPI_PASSWORD ?? stored.password ?? ''),
+    authType: normalizeAuthType(row.authType ?? env.YAPI_AUTH_TYPE ?? stored.authType ?? 'normal'),
     timeoutMs: Number.isFinite(timeout) && timeout >= 1000 ? Math.min(timeout, 120_000) : 20_000,
   }
 }
@@ -244,7 +251,7 @@ function readConfig(config) {
  * @returns {{ getJson: Function, ensureSession: Function, status: Function }} client face.
  */
 function createYapiClient(settings, logger) {
-  const { baseUrl, email, password, timeoutMs } = settings
+  const { baseUrl, email, password, authType, timeoutMs } = settings
   let cookie = ''
   let expiresAt = 0
   let pendingLogin = null
@@ -266,7 +273,8 @@ function createYapiClient(settings, logger) {
     }
     let response
     try {
-      response = await fetch(`${baseUrl}/api/user/login`, {
+      const loginPath = authType === 'ldap' ? '/api/user/login_by_ldap' : '/api/user/login'
+      response = await fetch(`${baseUrl}${loginPath}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', accept: 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -395,6 +403,7 @@ export function apply(ctx, config = {}) {
     return {
       baseUrl: state.settings.baseUrl,
       email: state.settings.email,
+      authType: state.settings.authType,
       hasPassword: state.settings.password !== '',
       loggedIn: status.loggedIn,
       user: status.user ? { username: status.user.username ?? '', email: status.user.email ?? '' } : null,
@@ -538,7 +547,8 @@ export function apply(ctx, config = {}) {
       )
     }
 
-    const next = { baseUrl, email, password, timeoutMs: current.timeoutMs }
+    const authType = normalizeAuthType((body && body.authType) ?? current.authType ?? stored.authType ?? 'normal')
+    const next = { baseUrl, email, password, authType, timeoutMs: current.timeoutMs }
     const probe = createYapiClient(next, ctx.logger)
     try {
       await probe.ensureSession(true)

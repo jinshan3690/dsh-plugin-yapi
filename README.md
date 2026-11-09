@@ -43,12 +43,13 @@ dsh plugin --profile desktop add dsh-plugin-yapi
 打开 DSH → 左侧 **YAPI** → 右上角 **账号设置**，填写：
 
 - YAPI 地址（如 `https://yapi.example.com`，带 `http://` 或 `https://`）
+- 登录方式：**普通登录** / **LDAP**（选 LDAP 前确认 YAPI 服务端已开启 LDAP）
 - 账号 / 密码
 
-点「测试并保存」，验证通过后生效。
+点「测试并保存」，验证通过后生效。普通登录走 `/api/user/login`，LDAP 走 `/api/user/login_by_ldap`。
 
-- 账号保存在 `~/.dsh/dsh-plugin-yapi.json`（权限 `0600`），不会进入仓库。
-- 也支持环境变量 `YAPI_BASE_URL` / `YAPI_EMAIL` / `YAPI_PASSWORD`。
+- 账号保存在 `~/.dsh/dsh-plugin-yapi.json`（权限 `0600`），不会进入仓库；`authType` 为 `normal` 或 `ldap`。
+- 也支持环境变量 `YAPI_BASE_URL` / `YAPI_EMAIL` / `YAPI_PASSWORD` / `YAPI_AUTH_TYPE`（`ldap` 时用 LDAP 登录）。
 - 搜索需要项目 ID；打开一个文档后会自动跟随该文档所属项目。
 - 插件**没有内置任何 YAPI 地址**，必须自己配置。
 
@@ -114,6 +115,7 @@ yapi-sync --dir <skills根目录>      # 追加自定义目录
   export YAPI_BASE_URL='https://yapi.example.com'
   export YAPI_EMAIL='you@example.com'
   export YAPI_PASSWORD='your-password'
+  export YAPI_AUTH_TYPE='normal'   # 或 ldap
   ```
 
 常用参数：

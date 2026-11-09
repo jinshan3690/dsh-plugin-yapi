@@ -14,7 +14,7 @@ process.env.DSH_HOME = home
 
 const loginCalls = []
 globalThis.fetch = async (url, options = {}) => {
-  if (String(url).endsWith('/api/user/login')) {
+  if (String(url).endsWith('/api/user/login') || String(url).endsWith('/api/user/login_by_ldap')) {
     loginCalls.push(String(url))
     const body = JSON.parse(options.body)
     if (body.password !== 'good-password') {
@@ -62,6 +62,7 @@ const baseConfig = {
   baseUrl: 'https://yapi.example.test',
   email: 'tester@example.test',
   password: 'good-password',
+  authType: 'normal',
   timeoutMs: 5000,
 }
 
@@ -106,6 +107,7 @@ test('a verified login persists the account with 0600', async () => {
     baseUrl: 'https://yapi.example.test',
     email: 'new@example.test',
     password: 'good-password',
+    authType: 'normal',
     timeoutMs: 5000,
   })
   if (process.platform !== 'win32') {
@@ -169,4 +171,20 @@ test('registers the bundled yapi-doc skill when no user copy exists', async () =
   const syncLoaded = await provider.get(candidates[1])
   assert.equal(syncLoaded.name, 'yapi-sync')
   assert.match(syncLoaded.content, /yapi-sync/u)
+})
+
+
+test('LDAP login uses /api/user/login_by_ldap and persists authType', async () => {
+  loginCalls.length = 0
+  const { settingsRoute } = boot(baseConfig)
+  const response = await settingsRoute.fetch({
+    method: 'POST',
+    json: async () => ({ ...baseConfig, authType: 'ldap' }),
+  })
+  const payload = await response.json()
+  assert.equal(payload.ok, true)
+  assert.equal(payload.authType, 'ldap')
+  assert.ok(loginCalls.some((url) => url.endsWith('/api/user/login_by_ldap')))
+  const stored = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'))
+  assert.equal(stored.authType, 'ldap')
 })

@@ -453,6 +453,7 @@ function readSettings() {
     baseUrl: normalizeBaseUrl(env.YAPI_BASE_URL || stored.baseUrl),
     email: String(env.YAPI_EMAIL || stored.email || '').trim(),
     password: String(env.YAPI_PASSWORD || stored.password || ''),
+    authType: String(env.YAPI_AUTH_TYPE || stored.authType || 'normal').trim().toLowerCase() === 'ldap' ? 'ldap' : 'normal',
     timeoutMs: Number.isFinite(timeout) && timeout >= 1000 ? Math.min(timeout, 120000) : 20000,
   }
 }
@@ -474,7 +475,8 @@ async function createSession(settings) {
   async function login() {
     let response
     try {
-      response = await fetch(settings.baseUrl + '/api/user/login', {
+      const loginPath = settings.authType === 'ldap' ? '/api/user/login_by_ldap' : '/api/user/login'
+      response = await fetch(settings.baseUrl + loginPath, {
         method: 'POST',
         headers: { 'content-type': 'application/json', accept: 'application/json' },
         body: JSON.stringify({ email: settings.email, password: settings.password }),
@@ -670,7 +672,8 @@ function printHelp() {
 
 账号：
   读取 ${CONFIG_FILE}
-  或环境变量 YAPI_BASE_URL / YAPI_EMAIL / YAPI_PASSWORD
+  或环境变量 YAPI_BASE_URL / YAPI_EMAIL / YAPI_PASSWORD / YAPI_AUTH_TYPE
+  （YAPI_AUTH_TYPE=ldap 使用 LDAP 登录，默认普通登录）
 
 示例：
   yapi-doc 10001

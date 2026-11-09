@@ -710,8 +710,8 @@ window.__ModuleLoader__.load({
       '.yapi-modal-state{padding:8px 10px;border:1px solid var(--yapi-line);border-radius:8px;background:var(--yapi-surface);font-size:12px;color:var(--yapi-text-2)}',
       '.yapi-formrow{display:flex;flex-direction:column;gap:5px}',
       '.yapi-formrow label{font-size:11.5px;font-weight:600;color:var(--yapi-text-3)}',
-      '.yapi-formrow input{width:100%;box-sizing:border-box;border:1px solid var(--yapi-line);border-radius:8px;background:var(--yapi-surface-2);color:inherit;font-family:inherit;font-size:13px;padding:8px 10px;outline:0}',
-      '.yapi-formrow input:focus{border-color:var(--yapi-accent)}',
+      '.yapi-formrow input,.yapi-formrow select{width:100%;box-sizing:border-box;border:1px solid var(--yapi-line);border-radius:8px;background:var(--yapi-surface-2);color:inherit;font-family:inherit;font-size:13px;padding:8px 10px;outline:0}',
+      '.yapi-formrow input:focus,.yapi-formrow select:focus{border-color:var(--yapi-accent)}',
       '.yapi-formhint{font-size:11.5px;line-height:1.6;color:var(--yapi-text-3)}',
       '.yapi-modal-error{border:1px solid rgba(220,38,38,.22);border-radius:8px;background:rgba(220,38,38,.07);padding:8px 10px;font-size:12px;line-height:1.55;color:var(--dsw-alias-state-error-primary,#dc2626);word-break:break-word}',
       '.yapi-copymodal{max-width:520px}',
@@ -1155,7 +1155,7 @@ window.__ModuleLoader__.load({
       })
       const [account, setAccount] = useState(null)
       const [accountOpen, setAccountOpen] = useState(false)
-      const [accountForm, setAccountForm] = useState({ baseUrl: '', email: '', password: '' })
+      const [accountForm, setAccountForm] = useState({ baseUrl: '', email: '', password: '', authType: 'normal' })
       const [accountSaving, setAccountSaving] = useState(false)
       const [accountError, setAccountError] = useState('')
 
@@ -1462,7 +1462,7 @@ window.__ModuleLoader__.load({
               throw new Error((payload && payload.error && payload.error.message) || '读取账号设置失败')
             }
             setAccount(payload)
-            setAccountForm({ baseUrl: payload.baseUrl || '', email: payload.email || '', password: '' })
+            setAccountForm({ baseUrl: payload.baseUrl || '', email: payload.email || '', password: '', authType: payload.authType || 'normal' })
           })
           .catch(function (error) {
             setAccountError((error && error.message) || String(error))
@@ -1487,7 +1487,7 @@ window.__ModuleLoader__.load({
             if (!payload) throw new Error('宿主返回了非 JSON 响应')
             if (!payload.ok) throw new Error((payload.error && payload.error.message) || '保存失败')
             setAccount(payload)
-            setAccountForm({ baseUrl: payload.baseUrl || '', email: payload.email || '', password: '' })
+            setAccountForm({ baseUrl: payload.baseUrl || '', email: payload.email || '', password: '', authType: payload.authType || 'normal' })
             setAccountOpen(false)
             showToast('账号已保存并登录成功')
             if (activeId !== null) fetchDoc(activeId)
@@ -2365,6 +2365,22 @@ window.__ModuleLoader__.load({
                     h(
                       'div',
                       { className: 'yapi-formrow' },
+                      h('label', null, '登录方式'),
+                      h(
+                        'select',
+                        {
+                          value: accountForm.authType || 'normal',
+                          onChange: function (event) {
+                            updateAccountForm({ authType: event.target.value })
+                          },
+                        },
+                        h('option', { value: 'normal' }, '普通登录'),
+                        h('option', { value: 'ldap' }, 'LDAP'),
+                      ),
+                    ),
+                    h(
+                      'div',
+                      { className: 'yapi-formrow' },
                       h('label', null, '账号（邮箱）'),
                       h('input', {
                         value: accountForm.email,
@@ -2393,7 +2409,7 @@ window.__ModuleLoader__.load({
                     h(
                       'div',
                       { className: 'yapi-formhint' },
-                      '点击「测试并保存」后，插件会先用这组账号真实登录 YAPI；成功后才写入 ' +
+                      '普通登录使用 YAPI 账号密码；LDAP 使用 LDAP 账号密码（需 YAPI 服务端开启 LDAP）。点击「测试并保存」后，插件会先用这组账号真实登录 YAPI；成功后才写入 ' +
                         ((account && account.configFile) || '~/.dsh/dsh-plugin-yapi.json') +
                         '（权限 0600）。密码只保存在 Host 端，不会回传页面。',
                     ),

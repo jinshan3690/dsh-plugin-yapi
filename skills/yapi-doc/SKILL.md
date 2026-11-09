@@ -59,8 +59,8 @@ yapi-doc install-skill --dir <目录>    # 其他 agent 的 skills 目录
 
 ## 账号
 
-CLI 读取 `~/.dsh/dsh-plugin-yapi.json`（YAPI 面板 → 账号设置维护），也支持
-`YAPI_BASE_URL` / `YAPI_EMAIL` / `YAPI_PASSWORD` 环境变量。不需要额外配置。
+CLI 读取 `~/.dsh/dsh-plugin-yapi.json`（YAPI 面板 → 账号设置维护，`authType` 为 `normal` 或 `ldap`），也支持
+`YAPI_BASE_URL` / `YAPI_EMAIL` / `YAPI_PASSWORD` / `YAPI_AUTH_TYPE` 环境变量。不需要额外配置。
 
 ## 可移植性
 
