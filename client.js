@@ -817,6 +817,9 @@ window.__ModuleLoader__.load({
       '.yapi-trow[data-match="true"]{background:color-mix(in srgb,#f59e0b 13%,transparent)}',
       '.yapi-trow[data-active-match="true"]{background:color-mix(in srgb,#f59e0b 26%,transparent);box-shadow:inset 3px 0 0 #d97706}',
       '.yapi-trow mark{background:#fbbf24;color:#7c2d12;font-weight:600;border-radius:3px;padding:0 2px}',
+      '.yapi-tooltip{position:fixed;z-index:1000;max-width:280px;background:var(--yapi-text);color:var(--yapi-bg);font-size:11.5px;line-height:1.45;padding:7px 9px;border-radius:8px;box-shadow:0 10px 28px rgba(15,20,40,.24);pointer-events:none;word-break:break-all}',
+      '.yapi-tooltip-path{font-family:var(--ds-font-family-code,ui-monospace,Menlo,monospace);font-weight:600}',
+      '.yapi-tooltip-meta{margin-top:2px;font-size:10.5px;opacity:.72}',
       '.yapi-trow[data-active-match="true"] mark{background:#b45309;color:#fff}',
       '.yapi-fieldnav{display:inline-flex;align-items:center;gap:3px;margin-left:2px}',
       '.yapi-trow[data-kind="object"] .yapi-ttype{color:#7c3aed;font-weight:600}',
@@ -1057,6 +1060,7 @@ window.__ModuleLoader__.load({
       )
 
       const [matchIndex, setMatchIndex] = useState(0)
+      const [hoverTip, setHoverTip] = useState(null)
       const rowRefs = useRef(new Map())
       const keyword = query.trim().toLowerCase()
       const matchInfo = collectMatchNodes(nodes, keyword)
@@ -1120,6 +1124,19 @@ window.__ModuleLoader__.load({
         if (matchCount === 0) return
         setMatchIndex(function (previous) {
           return (previous + delta + matchCount) % matchCount
+        })
+      }
+
+      function showTip(node, depth, event) {
+        const padding = 12
+        const maxX = Math.max(8, (window.innerWidth || 1200) - 300)
+        const maxY = Math.max(8, (window.innerHeight || 800) - 76)
+        setHoverTip({
+          x: Math.min(event.clientX + padding, maxX),
+          y: Math.min(event.clientY + padding, maxY),
+          path: node.path || node.name || '',
+          type: node.type || '',
+          depth: depth + 1,
         })
       }
 
@@ -1223,7 +1240,12 @@ window.__ModuleLoader__.load({
               ),
               h(
                 'div',
-                { className: 'yapi-treebody' },
+                {
+                  className: 'yapi-treebody',
+                  onScroll: function () {
+                    if (hoverTip) setHoverTip(null)
+                  },
+                },
                 rows.map(function (row, index) {
                   const node = row.node
                   const open = expanded.has(node.id)
@@ -1252,9 +1274,12 @@ window.__ModuleLoader__.load({
                         if (element) rowRefs.current.set(node.id, element)
                         else rowRefs.current.delete(node.id)
                       },
-                      title:
-                        (node.path || node.name || '') +
-                        (node.type ? '（' + node.type + '）' : ''),
+                      onMouseEnter: function (event) {
+                        showTip(node, row.depth, event)
+                      },
+                      onMouseLeave: function () {
+                        setHoverTip(null)
+                      },
                       'data-container': hasChildren ? 'true' : 'false',
                       'data-kind': kind,
                       'data-match': matched ? 'true' : 'false',
@@ -1282,7 +1307,7 @@ window.__ModuleLoader__.load({
                             h(ChevronIcon, { size: 11 }),
                           )
                         : h('span', { className: 'yapi-tchev yapi-tchev-empty' }),
-                      h('code', { title: node.path }, highlightText(node.name, keyword)),
+                      h('code', null, highlightText(node.name, keyword)),
                       hasChildren ? h('span', { className: 'yapi-tcount' }, node.children.length) : null,
                     ),
                     h('div', { className: 'yapi-tcell yapi-ttype' }, highlightText(node.type || '—', keyword)),
@@ -1298,6 +1323,21 @@ window.__ModuleLoader__.load({
                 }),
               ),
             ),
+        hoverTip
+          ? h(
+              'div',
+              {
+                className: 'yapi-tooltip',
+                style: { left: hoverTip.x + 'px', top: hoverTip.y + 'px' },
+              },
+              h('div', { className: 'yapi-tooltip-path' }, hoverTip.path),
+              h(
+                'div',
+                { className: 'yapi-tooltip-meta' },
+                (hoverTip.type ? hoverTip.type + ' · ' : '') + '第 ' + hoverTip.depth + ' 层',
+              ),
+            )
+          : null,
       )
     }
 
