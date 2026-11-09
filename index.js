@@ -449,6 +449,7 @@ export function apply(ctx, config = {}) {
     if (keyword === '') {
       return jsonResponse({ ok: true, data: { projectId, projectName: '', total: 0, items: [] } })
     }
+    if (body && body.refresh === true) listCache.delete(projectId)
     try {
       const list = await interfacesOf(projectId)
       let projectName = ''
@@ -495,7 +496,9 @@ export function apply(ctx, config = {}) {
           ctx.logger?.warn?.(`[yapi] 读取项目 ${projectId} 失败：${describe(error)}`)
         }
       }
-      return jsonResponse({ ok: true, data: normalizeInterface(raw, project, state.settings.baseUrl) })
+      const doc = normalizeInterface(raw, project, state.settings.baseUrl)
+      if (Number.isSafeInteger(projectId) && projectId > 0) listCache.delete(projectId)
+      return jsonResponse({ ok: true, data: doc })
     } catch (error) {
       return jsonResponse({ ok: false, error: { code: error.code || 'UNKNOWN', message: describe(error) } }, 200)
     }

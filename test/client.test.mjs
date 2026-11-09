@@ -248,6 +248,7 @@ test('filterTree keeps the ancestors needed to reach a match', () => {
 test('buildCopyText includes only the checked sections', () => {
   const { hooks } = loadClient()
   const doc = {
+    id: 10001,
     title: 'Demo',
     method: 'POST',
     path: '/x',
@@ -286,7 +287,7 @@ test('buildCopyText includes only the checked sections', () => {
     responseAnnotation,
     '说明',
   )
-  assert.match(text, /^# Demo/u)
+  assert.match(text, /^# Demo（#10001）/u)
   assert.match(text, /## 请求地址\nPOST https:\/\/api\.example\.com\/x/u)
   assert.match(text, /## 请求头\nContent-Type: application\/json/u)
   assert.match(text, /## 请求参数\nQuery:\n- page = 1（integer，必填，页码）/u)

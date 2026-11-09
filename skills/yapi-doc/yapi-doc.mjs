@@ -592,7 +592,7 @@ function paramLines(title, rows) {
 }
 
 function renderDoc(doc, requestFieldRows, responseFieldRows, options) {
-  const lines = ['# ' + (doc.title || '未命名接口'), doc.method + ' ' + doc.path]
+  const lines = ['# ' + (doc.title || '未命名接口') + '（#' + doc.id + '）', doc.method + ' ' + doc.path]
   if (doc.projectName) lines.push('项目：' + doc.projectName + '（' + doc.projectId + '）')
   if (doc.status) lines.push('状态：' + (STATUS_LABEL[doc.status] || doc.status))
   if (doc.tags.length > 0) lines.push('标签：' + doc.tags.join(' / '))

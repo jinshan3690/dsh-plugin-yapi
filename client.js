@@ -206,7 +206,7 @@ window.__ModuleLoader__.load({
     function buildCopyText(doc, options, address, format, requestAnnotation, responseAnnotation, descText) {
       const sections = []
       const mode = format === 'annotated' ? 'annotated' : 'example'
-      if (options.title) sections.push('# ' + (doc.title || '未命名接口'))
+      if (options.title) sections.push('# ' + (doc.title || '未命名接口') + '（#' + doc.id + '）')
       if (options.address) {
         const target = address || doc.path || ''
         sections.push('## 请求地址\n' + doc.method + ' ' + target)
@@ -677,6 +677,9 @@ window.__ModuleLoader__.load({
       '.yapi-projectinput:focus{border-color:var(--yapi-accent)}',
       '.yapi-searchpanel-meta{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;color:var(--yapi-text-3)}',
       '.yapi-searchpanel-match{font-size:11.5px;font-weight:600;color:var(--yapi-accent)}',
+      '.yapi-searchpanel-refresh{appearance:none;border:1px solid var(--yapi-line);border-radius:7px;background:transparent;color:var(--yapi-text-3);font-family:inherit;font-size:11.5px;padding:4px 8px;cursor:pointer;white-space:nowrap}',
+      '.yapi-searchpanel-refresh:hover:not(:disabled){color:var(--yapi-accent);border-color:var(--yapi-accent)}',
+      '.yapi-searchpanel-refresh:disabled{opacity:.5;cursor:not-allowed}',
       '.yapi-searchpanel-close{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:0;border-radius:6px;background:transparent;color:var(--yapi-text-3);cursor:pointer;padding:0}',
       '.yapi-searchpanel-close:hover{background:var(--yapi-surface-2);color:var(--yapi-text)}',
       '.yapi-searchpanel-body{max-height:380px;overflow:auto}',
@@ -771,6 +774,7 @@ window.__ModuleLoader__.load({
       '.yapi-openlink:hover{color:var(--yapi-accent);border-color:var(--yapi-accent)}',
       '.yapi-titlebar-actions{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}',
       '.yapi-titlebar-actions .yapi-openlink{margin-left:0}',
+      '.yapi-docid{font-family:var(--ds-font-family-code,ui-monospace,Menlo,monospace);font-size:11px;font-weight:600;color:var(--yapi-text-3);border:1px solid var(--yapi-line);border-radius:6px;padding:2px 6px;white-space:nowrap}',
       '.yapi-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px;font-size:12.5px;color:var(--yapi-text-3)}',
       '.yapi-dot{opacity:.55}',
       '.yapi-addrs{display:grid;grid-template-columns:1.1fr 1.4fr;gap:12px;padding:0 24px 12px}',
@@ -1500,7 +1504,7 @@ window.__ModuleLoader__.load({
           })
       }
 
-      function runSearch(keyword, projectOverride) {
+      function runSearch(keyword, projectOverride, refresh) {
         const text = String(keyword === undefined || keyword === null ? '' : keyword).trim()
         if (text === '') return
         const project = String(
@@ -1533,7 +1537,7 @@ window.__ModuleLoader__.load({
         fetch('/api/yapi/search', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ projectId: Number(project), keyword: text }),
+          body: JSON.stringify({ projectId: Number(project), keyword: text, refresh: refresh === true }),
         })
           .then(function (response) {
             return response.json().catch(function () {
@@ -1819,6 +1823,19 @@ window.__ModuleLoader__.load({
                       'button',
                       {
                         type: 'button',
+                        className: 'yapi-searchpanel-refresh',
+                        disabled: search.loading,
+                        title: '重新拉取接口列表',
+                        onClick: function () {
+                          runSearch(search.keyword || input, undefined, true)
+                        },
+                      },
+                      '刷新',
+                    ),
+                    h(
+                      'button',
+                      {
+                        type: 'button',
                         className: 'yapi-searchpanel-close',
                         'aria-label': '关闭搜索',
                         onClick: function () {
@@ -2023,6 +2040,7 @@ window.__ModuleLoader__.load({
                     { className: 'yapi-titlebar' },
                     h('span', { className: 'yapi-method', 'data-method': doc.method }, doc.method),
                     h('h2', null, doc.title || '未命名接口'),
+                    h('span', { className: 'yapi-docid', title: '接口 ID' }, '#' + doc.id),
                     doc.status
                       ? h(
                           'span',
@@ -2061,7 +2079,12 @@ window.__ModuleLoader__.load({
                   h(
                     'div',
                     { className: 'yapi-meta' },
-                    h('span', null, doc.project.name || '未命名项目'),
+                    h(
+                      'span',
+                      null,
+                      (doc.project.name || '未命名项目') +
+                        (doc.project.id ? '（' + doc.project.id + '）' : ''),
+                    ),
                     h('span', { className: 'yapi-dot' }, '·'),
                     h('span', null, doc.tags.length > 0 ? doc.tags.join(' / ') : '未分组'),
                     doc.author
