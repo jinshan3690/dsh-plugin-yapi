@@ -2473,7 +2473,11 @@ window.__ModuleLoader__.load({
                     doc.status
                       ? h(
                           'span',
-                          { className: 'yapi-status', 'data-status': doc.status },
+                          {
+                            className: 'yapi-status',
+                            'data-status': doc.status,
+                            title: 'YAPI 接口状态：' + (STATUS_LABEL[doc.status] || doc.status),
+                          },
                           STATUS_LABEL[doc.status] || doc.status,
                         )
                       : null,
