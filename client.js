@@ -691,6 +691,8 @@ window.__ModuleLoader__.load({
       '.yapi-searchitem{display:flex;align-items:center;gap:10px;width:100%;border:0;border-bottom:1px solid var(--yapi-line);background:transparent;color:inherit;text-align:left;padding:10px 12px;cursor:pointer;font-family:inherit}',
       '.yapi-searchitem:last-child{border-bottom:0}',
       '.yapi-searchitem:hover{background:var(--yapi-surface)}',
+      '.yapi-searchitem[data-current="true"]{background:color-mix(in srgb,var(--yapi-accent) 8%,transparent)}',
+      '.yapi-searchitem[data-current="true"] .yapi-searchitem-id{color:var(--yapi-accent)}',
       '.yapi-searchitem-method{flex:none;width:42px;font-family:var(--ds-font-family-code,ui-monospace,Menlo,monospace);font-size:9.5px;font-weight:800;color:var(--yapi-text-3)}',
       '.yapi-searchitem-method[data-method="GET"]{color:var(--dsw-alias-state-success-primary,#0b8a4b)}',
       '.yapi-searchitem-method[data-method="POST"]{color:var(--dsw-alias-brand-primary,#2058d8)}',
@@ -809,7 +811,13 @@ window.__ModuleLoader__.load({
       '.yapi-treehead{display:grid;grid-template-columns:minmax(0,1.4fr) 118px 62px minmax(0,1.6fr);gap:10px;padding:8px 12px;background:var(--yapi-surface);border-bottom:1px solid var(--yapi-line);font-size:11.5px;font-weight:600;color:var(--yapi-text-3)}',
       '.yapi-treehead span:first-child{padding-left:30px}',
       '.yapi-treebody{max-height:540px;overflow:auto}',
-      '.yapi-trow{display:grid;grid-template-columns:minmax(0,1.4fr) 118px 62px minmax(0,1.6fr);gap:10px;padding:6px 12px;border-bottom:1px solid var(--yapi-line);align-items:start}',
+      '.yapi-trow{position:relative;display:grid;grid-template-columns:minmax(0,1.4fr) 118px 62px minmax(0,1.6fr);gap:10px;padding:6px 12px;border-bottom:1px solid var(--yapi-line);align-items:start}',
+      '.yapi-trow::before{content:"";position:absolute;left:calc(16px + var(--yapi-depth,0) * 16px);top:0;bottom:0;width:2px;border-radius:2px;background:var(--yapi-depth-color);opacity:.32}',
+      '.yapi-trow[data-container="true"]{background:color-mix(in srgb,var(--yapi-depth-color) 7%,transparent)}',
+      '.yapi-trow[data-match="true"]{background:color-mix(in srgb,var(--yapi-accent) 9%,transparent)}',
+      '.yapi-trow mark{background:color-mix(in srgb,var(--yapi-accent) 24%,transparent);color:inherit;border-radius:3px;padding:0 2px}',
+      '.yapi-trow[data-kind="object"] .yapi-ttype{color:#7c3aed;font-weight:600}',
+      '.yapi-trow[data-kind="array"] .yapi-ttype{color:#b45309;font-weight:600}',
       '.yapi-trow:last-child{border-bottom:0}',
       '.yapi-trow:hover{background:var(--yapi-surface)}',
       '.yapi-tcell{min-width:0;font-size:12.5px;line-height:1.5}',
@@ -975,6 +983,28 @@ window.__ModuleLoader__.load({
       return out
     }
 
+    const DEPTH_COLORS = ['#94a3b8', '#60a5fa', '#34d399', '#f59e0b', '#a78bfa', '#f472b6']
+
+    function highlightText(text, keyword) {
+      const value = String(text === undefined || text === null ? '' : text)
+      if (keyword === '') return value
+      const lower = value.toLowerCase()
+      if (lower.indexOf(keyword) === -1) return value
+      const parts = []
+      let cursor = 0
+      let index = lower.indexOf(keyword, cursor)
+      let key = 0
+      while (index !== -1) {
+        if (index > cursor) parts.push(value.slice(cursor, index))
+        parts.push(h('mark', { key: 'm' + key }, value.slice(index, index + keyword.length)))
+        key += 1
+        cursor = index + keyword.length
+        index = lower.indexOf(keyword, cursor)
+      }
+      if (cursor < value.length) parts.push(value.slice(cursor))
+      return parts
+    }
+
     function FieldPanel(props) {
       const tree = props.tree || { nodes: [], total: 0 }
       const nodes = tree.nodes
@@ -992,17 +1022,14 @@ window.__ModuleLoader__.load({
       )
 
       const keyword = query.trim().toLowerCase()
-      const filtered = keyword === '' ? null : filterTree(nodes, keyword)
-      const visible = filtered === null ? nodes : filtered
-      const visibleExpanded = filtered === null ? expanded : new Set(collectExpandable(visible, []))
-      const rows = flattenTree(visible, visibleExpanded, 0, [])
+      const matchCount = keyword === '' ? 0 : countMatches(nodes, keyword)
+      const rows = flattenTree(nodes, expanded, 0, [])
       const expandable = collectExpandable(nodes, [])
       const allExpanded =
         expandable.length > 0 &&
         expandable.every(function (id) {
           return expanded.has(id)
         })
-      const interactive = filtered === null
 
       function toggle(node) {
         setExpanded(function (previous) {
@@ -1028,7 +1055,13 @@ window.__ModuleLoader__.load({
             { className: 'yapi-fieldbar-left' },
             h('span', { className: 'yapi-fieldbar-title' }, props.title),
             h('span', { className: 'yapi-count' }, tree.total),
-            filtered !== null ? h('span', { className: 'yapi-fieldmatch' }, '匹配 ' + countMatches(filtered, keyword)) : null,
+            keyword !== ''
+              ? h(
+                  'span',
+                  { className: 'yapi-fieldmatch' },
+                  matchCount > 0 ? '高亮 ' + matchCount : '无匹配',
+                )
+              : null,
           ),
           h(
             'div',
@@ -1036,7 +1069,7 @@ window.__ModuleLoader__.load({
             h('input', {
               className: 'yapi-fieldsearch',
               value: query,
-              placeholder: '筛选字段 / 类型 / 备注…',
+              placeholder: '高亮字段 / 类型 / 备注…',
               spellCheck: false,
               onChange: function (event) {
                 setQuery(event.target.value)
@@ -1047,8 +1080,8 @@ window.__ModuleLoader__.load({
               {
                 type: 'button',
                 className: 'yapi-btn ghost sm',
-                disabled: expandable.length === 0 || filtered !== null,
-                title: filtered !== null ? '筛选时自动展开全部匹配项' : '展开或收起全部层级',
+                disabled: expandable.length === 0,
+                title: '展开或收起全部层级',
                 onClick: toggleAll,
               },
               allExpanded ? '收起全部' : '展开全部',
@@ -1056,7 +1089,7 @@ window.__ModuleLoader__.load({
           ),
         ),
         rows.length === 0
-          ? h('div', { className: 'yapi-empty' }, keyword !== '' ? '没有匹配的字段' : '该接口没有提供字段说明')
+          ? h('div', { className: 'yapi-empty' }, '该接口没有提供字段说明')
           : h(
               'div',
               { className: 'yapi-tree' },
@@ -1073,39 +1106,58 @@ window.__ModuleLoader__.load({
                 { className: 'yapi-treebody' },
                 rows.map(function (row, index) {
                   const node = row.node
-                  const open = visibleExpanded.has(node.id)
+                  const open = expanded.has(node.id)
                   const hasChildren = node.children.length > 0
+                  const kind = String(node.type).startsWith('array')
+                    ? 'array'
+                    : node.type === 'object'
+                      ? 'object'
+                      : 'field'
+                  const haystack = (
+                    node.name +
+                    ' ' +
+                    node.path +
+                    ' ' +
+                    node.type +
+                    ' ' +
+                    node.description
+                  ).toLowerCase()
+                  const matched = keyword !== '' && haystack.indexOf(keyword) !== -1
                   return h(
                     'div',
-                    { key: node.id + '-' + index, className: 'yapi-trow' },
+                    {
+                      key: node.id + '-' + index,
+                      className: 'yapi-trow',
+                      'data-container': hasChildren ? 'true' : 'false',
+                      'data-kind': kind,
+                      'data-match': matched ? 'true' : 'false',
+                      style: {
+                        '--yapi-depth': row.depth,
+                        '--yapi-depth-color': DEPTH_COLORS[row.depth % DEPTH_COLORS.length],
+                      },
+                    },
                     h(
                       'div',
                       { className: 'yapi-tcell yapi-tname', style: { paddingLeft: 8 + row.depth * 16 + 'px' } },
                       hasChildren
-                        ? interactive
-                          ? h(
-                              'button',
-                              {
-                                type: 'button',
-                                className: 'yapi-tchev',
-                                'data-open': open ? 'true' : 'false',
-                                'aria-label': open ? '收起' : '展开',
-                                onClick: function () {
-                                  toggle(node)
-                                },
+                        ? h(
+                            'button',
+                            {
+                              type: 'button',
+                              className: 'yapi-tchev',
+                              'data-open': open ? 'true' : 'false',
+                              'aria-label': open ? '收起' : '展开',
+                              onClick: function () {
+                                toggle(node)
                               },
-                              h(ChevronIcon, { size: 11 }),
-                            )
-                          : h(
-                              'span',
-                              { className: 'yapi-tchev', 'data-open': 'true' },
-                              h(ChevronIcon, { size: 11 }),
-                            )
+                            },
+                            h(ChevronIcon, { size: 11 }),
+                          )
                         : h('span', { className: 'yapi-tchev yapi-tchev-empty' }),
-                      h('code', { title: node.path }, node.name),
+                      h('code', { title: node.path }, highlightText(node.name, keyword)),
                       hasChildren ? h('span', { className: 'yapi-tcount' }, node.children.length) : null,
                     ),
-                    h('div', { className: 'yapi-tcell yapi-ttype' }, node.type || '—'),
+                    h('div', { className: 'yapi-tcell yapi-ttype' }, highlightText(node.type || '—', keyword)),
                     h(
                       'div',
                       { className: 'yapi-tcell yapi-treq' },
@@ -1113,7 +1165,7 @@ window.__ModuleLoader__.load({
                         ? h('span', { className: 'yapi-req' }, '必填')
                         : h('span', { className: 'yapi-opt' }, '可选'),
                     ),
-                    h('div', { className: 'yapi-tcell yapi-tdesc' }, node.description || '—'),
+                    h('div', { className: 'yapi-tcell yapi-tdesc' }, highlightText(node.description || '—', keyword)),
                   )
                 }),
               ),
@@ -1158,6 +1210,15 @@ window.__ModuleLoader__.load({
         total: 0,
         projectName: '',
       })
+      const [searchView, setSearchView] = useState('search')
+      const [category, setCategory] = useState({
+        loading: false,
+        error: '',
+        catid: 0,
+        catName: '',
+        items: [],
+        total: 0,
+      })
       const [account, setAccount] = useState(null)
       const [accountOpen, setAccountOpen] = useState(false)
       const [accountForm, setAccountForm] = useState({ baseUrl: '', email: '', password: '', authType: 'normal' })
@@ -1168,6 +1229,7 @@ window.__ModuleLoader__.load({
       const toastTimer = useRef(0)
       const searchTimer = useRef(0)
       const searchSeq = useRef(0)
+      const categorySeq = useRef(0)
       const searchWrapRef = useRef(null)
       const autoTabbed = useRef(false)
 
@@ -1189,6 +1251,18 @@ window.__ModuleLoader__.load({
           setBase(doc.project.envs.length > 0 ? doc.project.envs[0].domain : '')
         },
         [doc],
+      )
+
+      useEffect(
+        function () {
+          if (searchView !== 'category') return
+          if (!doc || !doc.catid) {
+            setSearchView('search')
+            return
+          }
+          loadCategory(doc.catid, doc.project.id)
+        },
+        [searchView, doc],
       )
 
       useEffect(
@@ -1564,6 +1638,7 @@ window.__ModuleLoader__.load({
 
       function handleSearchInput(value) {
         setInput(value)
+        setSearchView('search')
         clearTimeout(searchTimer.current)
         const text = value.trim()
         if (text === '' || looksLikeDocRef(text)) {
@@ -1580,6 +1655,85 @@ window.__ModuleLoader__.load({
         window.open(project.pageUrl, '_blank', 'noopener,noreferrer')
       }
 
+      function loadCategory(catid, projectId) {
+        const sequence = ++categorySeq.current
+        setCategory(function (previous) {
+          return Object.assign({}, previous, {
+            loading: true,
+            error: '',
+            catid,
+            items: [],
+            total: 0,
+          })
+        })
+        fetch('/api/yapi/category', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ catid, projectId }),
+        })
+          .then(function (response) {
+            return response.json().catch(function () {
+              return null
+            })
+          })
+          .then(function (payload) {
+            if (sequence !== categorySeq.current) return
+            if (!payload) throw new Error('宿主返回了非 JSON 响应')
+            if (!payload.ok) throw new Error((payload.error && payload.error.message) || '读取目录失败')
+            const data = payload.data || {}
+            setCategory({
+              loading: false,
+              error: '',
+              catid: Number(data.catid) || catid,
+              catName: data.catName || '',
+              items: Array.isArray(data.items) ? data.items : [],
+              total: Number(data.total) || 0,
+            })
+          })
+          .catch(function (failure) {
+            if (sequence !== categorySeq.current) return
+            setCategory(function (previous) {
+              return Object.assign({}, previous, {
+                loading: false,
+                error: (failure && failure.message) || String(failure),
+                items: [],
+                total: 0,
+              })
+            })
+          })
+      }
+
+      function switchSearchView(next) {
+        if (next === 'category') {
+          if (!doc || !doc.catid) return
+          setSearchView('category')
+          setSearch(function (previous) {
+            return Object.assign({}, previous, { open: true, loading: false, error: '' })
+          })
+          return
+        }
+        setSearchView('search')
+        if (input.trim() !== '' && !looksLikeDocRef(input)) {
+          runSearch(input)
+        } else {
+          setSearch(function (previous) {
+            return Object.assign({}, previous, { open: false })
+          })
+        }
+      }
+
+      function openCategory() {
+        if (!doc || !doc.catid) return
+        setSearchView('category')
+        setSearch(function (previous) {
+          return Object.assign({}, previous, { open: true, loading: false, error: '' })
+        })
+      }
+
+      function openCategoryItem(item) {
+        openDoc(item.id, { title: item.title, method: item.method, path: item.path }, { keepInput: true })
+      }
+
       function openSearchResult(item) {
         openDoc(item.id, { title: item.title, method: item.method, path: item.path }, { keepInput: true })
         setSearch(function (previous) {
@@ -1591,6 +1745,7 @@ window.__ModuleLoader__.load({
         event.preventDefault()
         const text = input.trim()
         if (text === '') return
+        setSearchView('search')
         if (looksLikeDocRef(text)) {
           setSearch(function (previous) {
             return Object.assign({}, previous, { open: false })
@@ -1766,29 +1921,76 @@ window.__ModuleLoader__.load({
                 looksLikeDocRef(input) ? (loading ? '打开中…' : '打开文档') : '搜索接口',
               ),
             ),
-            search.open && input.trim() !== '' && !looksLikeDocRef(input)
+            (search.open && searchView === 'category') ||
+            (search.open &&
+              searchView === 'search' &&
+              input.trim() !== '' &&
+              !looksLikeDocRef(input))
               ? h(
                   'div',
                   { className: 'yapi-searchpanel', role: 'listbox' },
                   h(
                     'div',
                     { className: 'yapi-searchpanel-head' },
-                    h('span', { className: 'yapi-searchpanel-label' }, '接口搜索'),
+                    h(
+                      'div',
+                      { className: 'yapi-seg yapi-searchview' },
+                      h(
+                        'button',
+                        {
+                          type: 'button',
+                          'data-active': searchView === 'search' ? 'true' : 'false',
+                          onClick: function () {
+                            switchSearchView('search')
+                          },
+                        },
+                        '搜索',
+                      ),
+                      h(
+                        'button',
+                        {
+                          type: 'button',
+                          'data-active': searchView === 'category' ? 'true' : 'false',
+                          disabled: !doc || !doc.catid,
+                          title:
+                            doc && doc.catid
+                              ? '查看当前接口所在目录的其他接口'
+                              : '当前没有可用的接口目录',
+                          onClick: function () {
+                            switchSearchView('category')
+                          },
+                        },
+                        '同目录',
+                      ),
+                    ),
+                    h(
+                      'span',
+                      { className: 'yapi-searchpanel-label' },
+                      searchView === 'category' ? '同目录' : '接口搜索',
+                    ),
                     h(
                       'span',
                       { className: 'yapi-searchpanel-meta' },
-                      search.total > 0 ? '匹配 ' + search.total : '',
+                      searchView === 'category'
+                        ? (category.catName || '目录 #' + category.catid) +
+                          (category.total > 0 ? ' · 共 ' + category.total + ' 个接口' : '')
+                        : search.total > 0
+                          ? '匹配 ' + search.total
+                          : '',
                     ),
-
                     h(
                       'button',
                       {
                         type: 'button',
                         className: 'yapi-searchpanel-refresh',
-                        disabled: search.loading,
-                        title: '重新拉取接口列表',
+                        disabled: searchView === 'category' ? category.loading : search.loading,
+                        title: '重新加载',
                         onClick: function () {
-                          runSearch(search.keyword || input)
+                          if (searchView === 'category') {
+                            if (doc && doc.catid) loadCategory(doc.catid, doc.project.id)
+                          } else {
+                            runSearch(search.keyword || input)
+                          }
                         },
                       },
                       '刷新',
@@ -1800,6 +2002,7 @@ window.__ModuleLoader__.load({
                         className: 'yapi-searchpanel-close',
                         'aria-label': '关闭搜索',
                         onClick: function () {
+                          setSearchView('search')
                           setSearch(function (previous) {
                             return Object.assign({}, previous, { open: false })
                           })
@@ -1808,88 +2011,143 @@ window.__ModuleLoader__.load({
                       h(CloseIcon, { size: 14 }),
                     ),
                   ),
-                  h(
-                    'div',
-                    { className: 'yapi-searchpanel-body' },
-                    search.projects.length > 0
-                      ? h(
-                          'div',
-                          { className: 'yapi-searchprojects' },
-                          h('div', { className: 'yapi-searchprojects-title' }, '项目'),
-                          search.projects.map(function (project) {
-                            return h(
-                              'button',
-                              {
-                                key: project.id,
-                                type: 'button',
-                                className: 'yapi-searchproject',
-                                onClick: function () {
-                                  openSearchProject(project)
-                                },
-                              },
-                              h(
-                                'span',
-                                { className: 'yapi-searchproject-name' },
-                                project.name || '未命名项目',
-                              ),
-                              h('span', { className: 'yapi-searchproject-id' }, '#' + project.id),
-                            )
-                          }),
-                        )
-                      : null,
-                    search.loading
-                      ? h(
-                          'div',
-                          { className: 'yapi-searchpanel-state' },
-                          h('span', { className: 'yapi-spinner' }),
-                          '正在搜索接口…',
-                        )
-                      : search.error !== ''
-                        ? h('div', { className: 'yapi-searchpanel-error' }, search.error)
-                        : search.items.length === 0
+                  searchView === 'category'
+                    ? h(
+                        'div',
+                        { className: 'yapi-searchpanel-body' },
+                        category.loading
                           ? h(
                               'div',
                               { className: 'yapi-searchpanel-state' },
-                              search.keyword === '' ? '输入关键字搜索接口路径或标题' : '没有匹配的接口',
+                              h('span', { className: 'yapi-spinner' }),
+                              '正在读取同目录接口…',
                             )
-                          : search.items.map(function (item) {
-                              return h(
-                                'button',
-                                {
-                                  key: item.id,
-                                  type: 'button',
-                                  className: 'yapi-searchitem',
-                                  onClick: function () {
-                                    openSearchResult(item)
+                          : category.error !== ''
+                            ? h('div', { className: 'yapi-searchpanel-error' }, category.error)
+                            : category.items.length === 0
+                              ? h('div', { className: 'yapi-searchpanel-state' }, '该目录没有接口')
+                              : category.items.map(function (item) {
+                                  return h(
+                                    'button',
+                                    {
+                                      key: item.id,
+                                      type: 'button',
+                                      className: 'yapi-searchitem',
+                                      'data-current': item.id === activeId ? 'true' : 'false',
+                                      onClick: function () {
+                                        openCategoryItem(item)
+                                      },
+                                    },
+                                    h(
+                                      'span',
+                                      { className: 'yapi-searchitem-method', 'data-method': item.method },
+                                      item.method,
+                                    ),
+                                    h(
+                                      'span',
+                                      { className: 'yapi-searchitem-main' },
+                                      h('code', null, item.path || '/'),
+                                      h(
+                                        'span',
+                                        { className: 'yapi-searchitem-title' },
+                                        item.title || '未命名接口',
+                                      ),
+                                      item.id === activeId
+                                        ? h(
+                                            'span',
+                                            { className: 'yapi-searchitem-project' },
+                                            '当前接口',
+                                          )
+                                        : null,
+                                    ),
+                                    h('span', { className: 'yapi-searchitem-id' }, '#' + item.id),
+                                  )
+                                }),
+                      )
+                    : h(
+                        'div',
+                        { className: 'yapi-searchpanel-body' },
+                        search.projects.length > 0
+                          ? h(
+                              'div',
+                              { className: 'yapi-searchprojects' },
+                              h('div', { className: 'yapi-searchprojects-title' }, '项目'),
+                              search.projects.map(function (project) {
+                                return h(
+                                  'button',
+                                  {
+                                    key: project.id,
+                                    type: 'button',
+                                    className: 'yapi-searchproject',
+                                    onClick: function () {
+                                      openSearchProject(project)
+                                    },
                                   },
-                                },
-                                h(
-                                  'span',
-                                  { className: 'yapi-searchitem-method', 'data-method': item.method },
-                                  item.method,
-                                ),
-                                h(
-                                  'span',
-                                  { className: 'yapi-searchitem-main' },
-                                  h('code', null, item.path || '/'),
                                   h(
                                     'span',
-                                    { className: 'yapi-searchitem-title' },
-                                    item.title || '未命名接口',
+                                    { className: 'yapi-searchproject-name' },
+                                    project.name || '未命名项目',
                                   ),
-                                  item.projectId || item.projectName
-                                    ? h(
+                                  h('span', { className: 'yapi-searchproject-id' }, '#' + project.id),
+                                )
+                              }),
+                            )
+                          : null,
+                        search.loading
+                          ? h(
+                              'div',
+                              { className: 'yapi-searchpanel-state' },
+                              h('span', { className: 'yapi-spinner' }),
+                              '正在搜索接口…',
+                            )
+                          : search.error !== ''
+                            ? h('div', { className: 'yapi-searchpanel-error' }, search.error)
+                            : search.items.length === 0
+                              ? h(
+                                  'div',
+                                  { className: 'yapi-searchpanel-state' },
+                                  search.keyword === ''
+                                    ? '输入关键字搜索接口路径或标题'
+                                    : '没有匹配的接口',
+                                )
+                              : search.items.map(function (item) {
+                                  return h(
+                                    'button',
+                                    {
+                                      key: item.id,
+                                      type: 'button',
+                                      className: 'yapi-searchitem',
+                                      onClick: function () {
+                                        openSearchResult(item)
+                                      },
+                                    },
+                                    h(
+                                      'span',
+                                      { className: 'yapi-searchitem-method', 'data-method': item.method },
+                                      item.method,
+                                    ),
+                                    h(
+                                      'span',
+                                      { className: 'yapi-searchitem-main' },
+                                      h('code', null, item.path || '/'),
+                                      h(
                                         'span',
-                                        { className: 'yapi-searchitem-project' },
-                                        (item.projectName || '项目') +
-                                          (item.projectId ? ' #' + item.projectId : ''),
-                                      )
-                                    : null,
-                                ),
-                                h('span', { className: 'yapi-searchitem-id' }, '#' + item.id),
-                              )
-                            }),
-                  ),
+                                        { className: 'yapi-searchitem-title' },
+                                        item.title || '未命名接口',
+                                      ),
+                                      item.projectId || item.projectName
+                                        ? h(
+                                            'span',
+                                            { className: 'yapi-searchitem-project' },
+                                            (item.projectName || '项目') +
+                                              (item.projectId ? ' #' + item.projectId : ''),
+                                          )
+                                        : null,
+                                    ),
+                                    h('span', { className: 'yapi-searchitem-id' }, '#' + item.id),
+                                  )
+                                }),
+                      ),
                 )
               : null,
           ),
@@ -2046,6 +2304,18 @@ window.__ModuleLoader__.load({
                     h(
                       'div',
                       { className: 'yapi-titlebar-actions' },
+                      doc.catid
+                        ? h(
+                            'button',
+                            {
+                              type: 'button',
+                              className: 'yapi-btn ghost sm',
+                              title: '查看当前接口所在目录的其他接口',
+                              onClick: openCategory,
+                            },
+                            '同目录',
+                          )
+                        : null,
                       h(
                         'button',
                         {

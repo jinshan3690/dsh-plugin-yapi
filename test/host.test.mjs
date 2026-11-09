@@ -62,7 +62,32 @@ globalThis.fetch = async (url, options = {}) => {
   if (String(url).includes('/api/project/get')) {
     return {
       headers: { getSetCookie: () => [] },
-      text: async () => JSON.stringify({ errcode: 0, data: { _id: 9, name: 'Demo Project', basepath: '' } }),
+      text: async () =>
+        JSON.stringify({
+          errcode: 0,
+          data: {
+            _id: 9,
+            name: 'Demo Project',
+            basepath: '',
+            cats: [{ _id: 9019, name: 'Business Closure' }],
+          },
+        }),
+    }
+  }
+  if (String(url).includes('/api/interface/list_cat')) {
+    return {
+      headers: { getSetCookie: () => [] },
+      text: async () =>
+        JSON.stringify({
+          errcode: 0,
+          data: {
+            count: 2,
+            list: [
+              { _id: 10001, path: '/business/closure/config', method: 'POST', title: 'Demo Interface' },
+              { _id: 10002, path: '/business/closure/save', method: 'GET', title: 'Save Closure' },
+            ],
+          },
+        }),
     }
   }
   throw new Error('unexpected fetch: ' + String(url))
@@ -241,4 +266,22 @@ test('global search uses YAPI project/search and enriches paths', async () => {
   assert.equal(payload.data.items[0].path, '/business/closure/config')
   assert.equal(payload.data.items[0].projectId, 9)
   assert.equal(payload.data.projects[0].id, 9)
+})
+
+
+test('category route lists interfaces in the current catid', async () => {
+  const { routes } = boot(baseConfig)
+  const categoryRoute = routes.find((item) => item.path === '/api/yapi/category')
+  assert.ok(categoryRoute, 'category route registered')
+  const response = await categoryRoute.fetch({
+    method: 'POST',
+    json: async () => ({ catid: 9019, projectId: 9 }),
+  })
+  const payload = await response.json()
+  assert.equal(payload.ok, true)
+  assert.equal(payload.data.catid, 9019)
+  assert.equal(payload.data.catName, 'Business Closure')
+  assert.equal(payload.data.total, 2)
+  assert.equal(payload.data.items[0].id, 10001)
+  assert.equal(payload.data.items[0].path, '/business/closure/config')
 })

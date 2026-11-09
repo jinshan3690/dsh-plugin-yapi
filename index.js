@@ -481,6 +481,53 @@ export function apply(ctx, config = {}) {
     })
   }
 
+  async function handleCategory(request) {
+    let body = null
+    try {
+      body = await request.json()
+    } catch {
+      return jsonResponse({ ok: false, error: { code: 'BAD_REQUEST', message: '请求体必须是 JSON。' } }, 400)
+    }
+    const catid = Number(body && body.catid)
+    if (!Number.isSafeInteger(catid) || catid <= 0) {
+      return jsonResponse({ ok: false, error: { code: 'BAD_CATID', message: '缺少有效的目录 ID。' } }, 400)
+    }
+    try {
+      const data = await state.client.getJson(
+        `/api/interface/list_cat?page=1&limit=2000&catid=${encodeURIComponent(catid)}`,
+      )
+      const list = Array.isArray(data && data.list) ? data.list : []
+      let catName = ''
+      const projectId = Number(body && body.projectId)
+      if (Number.isSafeInteger(projectId) && projectId > 0) {
+        try {
+          const project = await projectOf(projectId)
+          const cats = Array.isArray(project && project.cats) ? project.cats : []
+          const category = cats.find(function (item) {
+            return item && Number(item._id) === catid
+          })
+          catName = String((category && category.name) || '')
+        } catch {
+          catName = ''
+        }
+      }
+      const items = list.map(function (item) {
+        return {
+          id: Number(item._id),
+          method: String(item.method ?? '').toUpperCase(),
+          path: String(item.path ?? ''),
+          title: String(item.title ?? ''),
+        }
+      })
+      return jsonResponse({
+        ok: true,
+        data: { catid, catName, total: Number(data && data.count) || items.length, items },
+      })
+    } catch (error) {
+      return jsonResponse({ ok: false, error: { code: error.code || 'UNKNOWN', message: describe(error) } }, 200)
+    }
+  }
+
   async function handleSearch(request) {
     let body = null
     try {
@@ -644,6 +691,7 @@ export function apply(ctx, config = {}) {
     const routes = [
       { path: '/api/yapi/interface', methods: ['POST'], requestBody: 'buffered', fetch: handleInterface },
       { path: '/api/yapi/search', methods: ['POST'], requestBody: 'buffered', fetch: handleSearch },
+      { path: '/api/yapi/category', methods: ['POST'], requestBody: 'buffered', fetch: handleCategory },
       { path: '/api/yapi/health', methods: ['GET'], requestBody: 'buffered', fetch: handleHealth },
       { path: '/api/yapi/settings', methods: ['GET', 'POST'], requestBody: 'buffered', fetch: handleSettings },
     ]
