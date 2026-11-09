@@ -25,6 +25,7 @@ window.__ModuleLoader__.load({
     const COPY_FORMAT_KEY = 'dsh-plugin-yapi:copy-format'
     const TABS_KEY = 'dsh-plugin-yapi:tabs'
     const ACTIVE_KEY = 'dsh-plugin-yapi:active-tab'
+    const DOC_TAB_KEY = 'dsh-plugin-yapi:doc-tab'
     const COPY_OPTIONS_KEY = 'dsh-plugin-yapi:copy-options'
     const DEFAULT_COPY_OPTIONS = {
       title: true,
@@ -1355,7 +1356,10 @@ window.__ModuleLoader__.load({
       const [activeId, setActiveId] = useState(function () {
         return ensureTabs().activeId
       })
-      const [tab, setTab] = useState('params')
+      const [tab, setTab] = useState(function () {
+        const stored = readStorage(DOC_TAB_KEY, '')
+        return ['params', 'request', 'response', 'desc'].indexOf(stored) !== -1 ? stored : 'params'
+      })
       const [copyFormat, setCopyFormat] = useState(function () {
         return readStorage(COPY_FORMAT_KEY, 'annotated') === 'json' ? 'json' : 'annotated'
       })
@@ -1639,10 +1643,14 @@ window.__ModuleLoader__.load({
                 addRecent(id)
                 if (!autoTabbed.current) {
                   autoTabbed.current = true
-                  const hasBody = loaded.request.body && loaded.request.body.kind !== 'none'
-                  const hasParams =
-                    loaded.request.query.length + loaded.request.params.length + loaded.request.form.length > 0
-                  setTab(hasBody ? 'request' : hasParams ? 'params' : 'response')
+                  if (readStorage(DOC_TAB_KEY, '') === '') {
+                    const hasBody = loaded.request.body && loaded.request.body.kind !== 'none'
+                    const hasParams =
+                      loaded.request.query.length + loaded.request.params.length + loaded.request.form.length > 0
+                    const chosen = hasBody ? 'request' : hasParams ? 'params' : 'response'
+                    setTab(chosen)
+                    writeStorage(DOC_TAB_KEY, chosen)
+                  }
                 }
               })
           })
@@ -2578,6 +2586,7 @@ window.__ModuleLoader__.load({
                         'data-active': tab === item.id ? 'true' : 'false',
                         onClick: function () {
                           setTab(item.id)
+                          writeStorage(DOC_TAB_KEY, item.id)
                         },
                       },
                       item.label,
