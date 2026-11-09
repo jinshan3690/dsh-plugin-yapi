@@ -814,8 +814,11 @@ window.__ModuleLoader__.load({
       '.yapi-trow{position:relative;display:grid;grid-template-columns:minmax(0,1.4fr) 118px 62px minmax(0,1.6fr);gap:10px;padding:6px 12px;border-bottom:1px solid var(--yapi-line);align-items:start}',
       '.yapi-trow::before{content:"";position:absolute;left:calc(16px + var(--yapi-depth,0) * 16px);top:0;bottom:0;width:2px;border-radius:2px;background:var(--yapi-depth-color);opacity:.32}',
       '.yapi-trow[data-container="true"]{background:color-mix(in srgb,var(--yapi-depth-color) 7%,transparent)}',
-      '.yapi-trow[data-match="true"]{background:color-mix(in srgb,var(--yapi-accent) 9%,transparent)}',
-      '.yapi-trow mark{background:color-mix(in srgb,var(--yapi-accent) 24%,transparent);color:inherit;border-radius:3px;padding:0 2px}',
+      '.yapi-trow[data-match="true"]{background:color-mix(in srgb,#f59e0b 13%,transparent)}',
+      '.yapi-trow[data-active-match="true"]{background:color-mix(in srgb,#f59e0b 26%,transparent);box-shadow:inset 3px 0 0 #d97706}',
+      '.yapi-trow mark{background:#fbbf24;color:#7c2d12;font-weight:600;border-radius:3px;padding:0 2px}',
+      '.yapi-trow[data-active-match="true"] mark{background:#b45309;color:#fff}',
+      '.yapi-fieldnav{display:inline-flex;align-items:center;gap:3px;margin-left:2px}',
       '.yapi-trow[data-kind="object"] .yapi-ttype{color:#7c3aed;font-weight:600}',
       '.yapi-trow[data-kind="array"] .yapi-ttype{color:#b45309;font-weight:600}',
       '.yapi-trow:last-child{border-bottom:0}',
@@ -973,6 +976,38 @@ window.__ModuleLoader__.load({
       return total
     }
 
+    function collectMatchNodes(nodes, keyword) {
+      const matches = []
+      const ancestors = new Set()
+      if (keyword === '') return { matches: matches, ancestors: ancestors }
+
+      function walk(list, parentPath) {
+        for (const node of list) {
+          const haystack = (
+            node.name +
+            ' ' +
+            node.path +
+            ' ' +
+            node.type +
+            ' ' +
+            node.description
+          ).toLowerCase()
+          if (haystack.indexOf(keyword) !== -1) matches.push(node)
+          if (node.children.length > 0) {
+            const before = matches.length
+            walk(node.children, parentPath.concat(node.id))
+            if (matches.length > before) {
+              for (const id of parentPath) ancestors.add(id)
+              ancestors.add(node.id)
+            }
+          }
+        }
+      }
+
+      walk(nodes, [])
+      return { matches: matches, ancestors: ancestors }
+    }
+
     function flattenTree(nodes, expanded, depth, out) {
       for (const node of nodes) {
         out.push({ node: node, depth: depth })
@@ -1021,15 +1056,52 @@ window.__ModuleLoader__.load({
         [nodes],
       )
 
+      const [matchIndex, setMatchIndex] = useState(0)
+      const rowRefs = useRef(new Map())
       const keyword = query.trim().toLowerCase()
-      const matchCount = keyword === '' ? 0 : countMatches(nodes, keyword)
-      const rows = flattenTree(nodes, expanded, 0, [])
+      const matchInfo = collectMatchNodes(nodes, keyword)
+      const matchNodes = matchInfo.matches
+      const matchCount = matchNodes.length
+      const safeIndex = matchCount === 0 ? 0 : Math.min(matchIndex, matchCount - 1)
+      const activeMatch = matchNodes[safeIndex] || null
+      const visibleExpanded =
+        keyword === ''
+          ? expanded
+          : new Set(Array.from(expanded).concat(Array.from(matchInfo.ancestors)))
+      const rows = flattenTree(nodes, visibleExpanded, 0, [])
       const expandable = collectExpandable(nodes, [])
       const allExpanded =
         expandable.length > 0 &&
         expandable.every(function (id) {
           return expanded.has(id)
         })
+
+      useEffect(
+        function () {
+          setMatchIndex(0)
+        },
+        [keyword],
+      )
+
+      useEffect(
+        function () {
+          setMatchIndex(function (previous) {
+            return Math.max(0, Math.min(previous, matchCount - 1))
+          })
+        },
+        [matchCount],
+      )
+
+      useEffect(
+        function () {
+          if (!activeMatch) return
+          const element = rowRefs.current.get(activeMatch.id)
+          if (element && element.scrollIntoView) {
+            element.scrollIntoView({ block: 'center', behavior: 'smooth' })
+          }
+        },
+        [activeMatch ? activeMatch.id : '', keyword],
+      )
 
       function toggle(node) {
         setExpanded(function (previous) {
@@ -1042,6 +1114,13 @@ window.__ModuleLoader__.load({
 
       function toggleAll() {
         setExpanded(allExpanded ? new Set() : new Set(expandable))
+      }
+
+      function goMatch(delta) {
+        if (matchCount === 0) return
+        setMatchIndex(function (previous) {
+          return (previous + delta + matchCount) % matchCount
+        })
       }
 
       return h(
@@ -1059,7 +1138,39 @@ window.__ModuleLoader__.load({
               ? h(
                   'span',
                   { className: 'yapi-fieldmatch' },
-                  matchCount > 0 ? '高亮 ' + matchCount : '无匹配',
+                  matchCount > 0 ? safeIndex + 1 + ' / ' + matchCount : '无匹配',
+                )
+              : null,
+            keyword !== ''
+              ? h(
+                  'span',
+                  { className: 'yapi-fieldnav' },
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'yapi-btn ghost sm',
+                      disabled: matchCount === 0,
+                      title: '上一处匹配（↑）',
+                      onClick: function () {
+                        goMatch(-1)
+                      },
+                    },
+                    '↑',
+                  ),
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'yapi-btn ghost sm',
+                      disabled: matchCount === 0,
+                      title: '下一处匹配（↓）',
+                      onClick: function () {
+                        goMatch(1)
+                      },
+                    },
+                    '↓',
+                  ),
                 )
               : null,
           ),
@@ -1073,6 +1184,15 @@ window.__ModuleLoader__.load({
               spellCheck: false,
               onChange: function (event) {
                 setQuery(event.target.value)
+              },
+              onKeyDown: function (event) {
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault()
+                  goMatch(1)
+                } else if (event.key === 'ArrowUp') {
+                  event.preventDefault()
+                  goMatch(-1)
+                }
               },
             }),
             h(
@@ -1128,9 +1248,17 @@ window.__ModuleLoader__.load({
                     {
                       key: node.id + '-' + index,
                       className: 'yapi-trow',
+                      ref: function (element) {
+                        if (element) rowRefs.current.set(node.id, element)
+                        else rowRefs.current.delete(node.id)
+                      },
+                      title:
+                        (node.path || node.name || '') +
+                        (node.type ? '（' + node.type + '）' : ''),
                       'data-container': hasChildren ? 'true' : 'false',
                       'data-kind': kind,
                       'data-match': matched ? 'true' : 'false',
+                      'data-active-match': activeMatch && activeMatch.id === node.id ? 'true' : 'false',
                       style: {
                         '--yapi-depth': row.depth,
                         '--yapi-depth-color': DEPTH_COLORS[row.depth % DEPTH_COLORS.length],
