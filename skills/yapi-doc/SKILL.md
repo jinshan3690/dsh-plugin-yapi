@@ -29,9 +29,11 @@ Windows 下把 `$HOME` 换成 `%USERPROFILE%`，路径为
 DSH 用户由插件自动注册，不需要执行本节。
 
 ```bash
-npm install -g github:jinshan3690/dsh-plugin-yapi
-yapi-doc sync-skills                   # 自动同步到检测到的 Trae / WorkBuddy / Qoder CN / Copilot / CodeBuddy / Agent Skills / DSH
-yapi-doc install-skill                 # 默认装到 ~/.agents/skills/yapi-doc
+npm install -g dsh-plugin-yapi
+yapi-sync                              # yapi-doc 和 yapi-sync 两个 skill 一起同步
+yapi-sync --dry-run                    # 只显示会写到哪些目录
+yapi-doc sync-skills                   # yapi-sync 的别名
+yapi-doc install-skill                 # 只装 yapi-doc，默认 ~/.agents/skills/yapi-doc
 yapi-doc install-skill --dir ~/.trae/skills/yapi-doc       # Trae
 yapi-doc install-skill --dir ~/.workbuddy/skills/yapi-doc  # WorkBuddy
 yapi-doc install-skill --dir <目录>    # 其他 agent 的 skills 目录

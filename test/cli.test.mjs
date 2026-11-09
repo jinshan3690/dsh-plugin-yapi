@@ -42,6 +42,16 @@ test('yapi-doc sync-skills detects and updates known tool roots', () => {
     const cli = path.join(target, 'yapi-doc.mjs')
     assert.ok(fs.existsSync(cli), relative + ' CLI')
     assert.ok(fs.readFileSync(path.join(target, 'SKILL.md'), 'utf8').includes(target), relative + ' paths')
+    assert.ok(fs.existsSync(path.join(home, relative, 'skills', 'yapi-sync', 'SKILL.md')), relative + ' sync skill')
   }
   assert.ok(!fs.existsSync(path.join(home, '.codex')), 'does not create absent tool dirs')
+})
+
+test('yapi-sync wrapper runs the skill sync', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'yapi-doc-wrapper-'))
+  fs.mkdirSync(path.join(home, '.trae'))
+  const env = { ...process.env, HOME: home, DSH_HOME: path.join(home, '.dsh') }
+  execFileSync(process.execPath, [path.join(root, 'bin/yapi-sync.mjs')], { encoding: 'utf8', env })
+  assert.ok(fs.existsSync(path.join(home, '.trae', 'skills', 'yapi-doc', 'SKILL.md')))
+  assert.ok(fs.existsSync(path.join(home, '.trae', 'skills', 'yapi-sync', 'SKILL.md')))
 })

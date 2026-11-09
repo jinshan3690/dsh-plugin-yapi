@@ -91,56 +91,84 @@ function harnessHome() {
 /** Location of the optional credential file written by the installer. */
 export const CONFIG_FILE = join(harnessHome(), 'dsh-plugin-yapi.json')
 
-const BUNDLED_SKILL_NAME = 'yapi-doc'
 const BUNDLED_SKILL_PROVIDER = 'yapi-doc-plugin'
-const BUNDLED_SKILL_DESCRIPTION =
-  'Read a YAPI interface document by ID, full URL, or path keyword. Use when a task needs an API method, path, headers, parameters, request body, response fields, or response example. The bundled CLI reads the local YAPI account and prints Markdown in one command.'
-const BUNDLED_SKILL_WHEN =
-  'The user mentions YAPI, an interface document ID (for example 10001), an API path, or asks for the request or response fields of an API.'
+const BUNDLED_SKILLS = [
+  {
+    name: 'yapi-doc',
+    dir: 'yapi-doc',
+    description:
+      'Read a YAPI interface document by ID, full URL, or path keyword. Use when a task needs an API method, path, headers, parameters, request body, response fields, or response example. The bundled CLI reads the local YAPI account and prints Markdown in one command.',
+    whenToUse:
+      'The user mentions YAPI, an interface document ID (for example 10001), an API path, or asks for the request or response fields of an API.',
+  },
+  {
+    name: 'yapi-sync',
+    dir: 'yapi-sync',
+    description:
+      'Sync the yapi-doc and yapi-sync skills into every detected AI tool (Trae, WorkBuddy, Qoder CN, GitHub Copilot, CodeBuddy, Codex/Agent Skills, DSH, Claude Code, Cursor, Gemini CLI, Amp, OpenCode and more). Use when the user asks to install, update, or sync the YAPI skill across tools.',
+    whenToUse:
+      'The user asks to install, update, or sync the YAPI skill or CLI across local AI tools.',
+  },
+]
+
+/** Packaged skills whose user-level copy is absent. */
+function bundledSkillDefs() {
+  return BUNDLED_SKILLS.map(function (skill) {
+    return Object.assign({}, skill, {
+      skillDir: join(HERE, 'skills', skill.dir),
+      skillPath: join(HERE, 'skills', skill.dir, 'SKILL.md'),
+    })
+  }).filter(function (skill) {
+    return (
+      existsSync(skill.skillPath) &&
+      !existsSync(join(harnessHome(), 'skills', skill.name, 'SKILL.md'))
+    )
+  })
+}
 
 /**
- * Register the packaged `yapi-doc` skill when the plugin was installed by
- * `dsh plugin add` (no `~/.dsh/skills` copy present). The installer path still
- * wins because the user skill root ranks above this bundled provider.
+ * Register packaged `yapi-doc` / `yapi-sync` skills when the plugin was
+ * installed by `dsh plugin add` (no `~/.dsh/skills` copy present). The user
+ * skill root still wins because it ranks above this bundled provider.
  * @param {any} ctx - DSH host context (must carry the `skills` service).
  */
 function registerBundledSkill(ctx) {
-  const skillDir = join(HERE, 'skills', 'yapi-doc')
-  const skillPath = join(skillDir, 'SKILL.md')
-  if (!existsSync(skillPath)) return
-  const userSkill = join(harnessHome(), 'skills', BUNDLED_SKILL_NAME, 'SKILL.md')
-  if (existsSync(userSkill)) return
+  const defs = bundledSkillDefs()
+  if (defs.length === 0) return
 
   ctx.skills.registerProvider(function () {
     return {
       name: BUNDLED_SKILL_PROVIDER,
       async list() {
-        return [
-          {
-            name: BUNDLED_SKILL_NAME,
-            description: BUNDLED_SKILL_DESCRIPTION,
-            whenToUse: BUNDLED_SKILL_WHEN,
+        return defs.map(function (skill) {
+          return {
+            name: skill.name,
+            description: skill.description,
+            whenToUse: skill.whenToUse,
             source: 'bundled',
             provider: BUNDLED_SKILL_PROVIDER,
             rank: 1000,
-            path: skillPath,
-          },
-        ]
+            path: skill.skillPath,
+          }
+        })
       },
       async get(candidate) {
-        if (!candidate || candidate.name !== BUNDLED_SKILL_NAME) return undefined
-        const raw = await readFile(skillPath, 'utf8')
+        const skill = defs.find(function (item) {
+          return item.name === (candidate && candidate.name)
+        })
+        if (skill === undefined) return undefined
+        const raw = await readFile(skill.skillPath, 'utf8')
         const body = raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/u, '').trim()
-        const content = body.split('$HOME/.dsh/skills/yapi-doc').join(skillDir)
+        const content = body.split('$HOME/.dsh/skills/yapi-doc').join(join(HERE, 'skills', 'yapi-doc'))
         return {
-          name: BUNDLED_SKILL_NAME,
-          description: BUNDLED_SKILL_DESCRIPTION,
-          whenToUse: BUNDLED_SKILL_WHEN,
+          name: skill.name,
+          description: skill.description,
+          whenToUse: skill.whenToUse,
           invocation: { modelInvocable: true, userInvocable: true },
           source: 'bundled',
           provider: BUNDLED_SKILL_PROVIDER,
-          resourceBase: { kind: 'directory', path: skillDir },
-          path: skillPath,
+          resourceBase: { kind: 'directory', path: skill.skillDir },
+          path: skill.skillPath,
           content,
         }
       },

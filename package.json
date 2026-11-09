@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-yapi",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "YAPI 接口文档面板 for DeepSeek Harness：搜索、多标签、字段树、勾选复制，附带 yapi-doc skill 与零依赖 CLI。",
   "type": "module",
   "main": "index.js",
@@ -46,7 +46,8 @@
     "skills"
   ],
   "bin": {
-    "yapi-doc": "bin/yapi-doc.mjs"
+    "yapi-doc": "bin/yapi-doc.mjs",
+    "yapi-sync": "bin/yapi-sync.mjs"
   },
   "license": "MIT",
   "author": "jinshan3690",

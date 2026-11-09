@@ -66,20 +66,27 @@ CLI 是零依赖 Node 脚本，不需要 DSH。直接命令行安装：
 
 ```bash
 npm install -g dsh-plugin-yapi
-yapi-doc install-skill
+yapi-sync
 yapi-doc <doc-id>
 ```
 
-- `install-skill` 默认把 `SKILL.md` 和 CLI 装到 `~/.agents/skills/yapi-doc`；支持 `SKILL.md` 的 agent 可直接读取。
+- `yapi-sync` 和 `yapi-doc` 一样是独立命令：一次把 **`yapi-doc` 和 `yapi-sync` 两个 skill**同步到所有检测到的工具。
+- 自动检测 Trae、WorkBuddy、Qoder CN、GitHub Copilot、CodeBuddy、Claude Code、Cursor、Gemini CLI、Amp、OpenCode、Codex/通用 Agent Skills、DSH 等目录；`--dir` 可追加自定义 skills 根目录。
+- 同步完重启对应应用，技能列表里会出现 `yapi-doc` 和 `yapi-sync`。
+
+```bash
+yapi-sync
+yapi-sync --dry-run                 # 只显示会写到哪些目录
+yapi-sync --dir <skills根目录>      # 追加自定义目录
+```
+
+- `yapi-doc sync-skills` 是 `yapi-sync` 的别名，仍然可用。
 - 如果 npm 暂时不可用，也可以 `npm install -g github:jinshan3690/dsh-plugin-yapi`。
-- **一键同步到所有已检测到的工具**：
+- 只装 `yapi-doc`（不装 `yapi-sync`）时用：
 
   ```bash
-  yapi-doc sync-skills
-  yapi-doc sync-skills --dry-run   # 只显示会写到哪些目录
+  yapi-doc install-skill
   ```
-
-  会自动检测 Trae、WorkBuddy、Qoder CN、GitHub Copilot、CodeBuddy、Claude Code、Cursor、Gemini CLI、Amp、OpenCode、Codex/通用 Agent Skills、DSH 等目录；`--dir` 可追加自定义目录。同步完重启对应应用。
 
 - 也可以单独指定目录：
 
@@ -124,8 +131,8 @@ yapi-doc <doc-id> --json          # 结构化输出
 - `--json`：输出 `{ ok, data }` 结构化 JSON。
 - `--project <id>`：`--search` 必填。
 
-**DSH 用户**不需要上面的 npm 安装：插件已自动注册 skill，CLI 在
-`~/.dsh/profiles/desktop/node_modules/.bin/yapi-doc`。
+**DSH 用户**不需要上面的 npm 安装：插件会自动注册 `yapi-doc` 和 `yapi-sync` 两个 skill；CLI 在
+`~/.dsh/profiles/desktop/node_modules/.bin/yapi-doc` 和 `.../.bin/yapi-sync`。
 
 ## 更新 / 卸载
 

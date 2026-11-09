@@ -358,6 +358,16 @@ function installSkill(dirArg) {
   console.log('Run: node "' + join(target, 'yapi-doc.mjs') + '" <doc-id>')
 }
 
+function copySyncSkillTo(root) {
+  const sourceDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'yapi-sync')
+  const source = join(sourceDir, 'SKILL.md')
+  if (!existsSync(source)) return undefined
+  const directory = join(root, 'yapi-sync')
+  mkdirSync(directory, { recursive: true })
+  copyFileSync(source, join(directory, 'SKILL.md'))
+  return directory
+}
+
 const HOME_AGENTS = [
   ['Trae', '.trae', '.trae/skills'],
   ['WorkBuddy', '.workbuddy', '.workbuddy/skills'],
@@ -400,24 +410,25 @@ function detectedSkillTargets(extraDirs) {
     }
   }
   for (const [label, detect, skills] of HOME_AGENTS) {
-    if (existsSync(join(home, detect))) add(label, join(home, skills, 'yapi-doc'))
+    if (existsSync(join(home, detect))) add(label, join(home, skills))
   }
-  add('Agent Skills（Codex / Cline / Zed / 通用）', join(home, '.agents', 'skills', 'yapi-doc'))
-  if (existsSync(DSH_HOME)) add('DSH', join(DSH_HOME, 'skills', 'yapi-doc'))
+  add('Agent Skills（Codex / Cline / Zed / 通用）', join(home, '.agents', 'skills'))
+  if (existsSync(DSH_HOME)) add('DSH', join(DSH_HOME, 'skills'))
   for (const dir of extraDirs) add('custom', dir)
   return targets
 }
 
 function syncSkills(extraDirs, dryRun) {
   const targets = detectedSkillTargets(extraDirs)
-  console.log('yapi-doc skill 同步：')
+  console.log('yapi-doc / yapi-sync skill 同步：')
   for (const item of targets) {
     if (dryRun) {
       console.log('  - ' + item.label + '  ' + item.dir)
       continue
     }
-    const target = copySkillTo(item.dir)
-    console.log('  ✓ ' + item.label + '  ' + target)
+    copySkillTo(join(item.dir, 'yapi-doc'))
+    copySyncSkillTo(item.dir)
+    console.log('  ✓ ' + item.label + '  ' + item.dir)
   }
   if (!dryRun) {
     console.log('')
