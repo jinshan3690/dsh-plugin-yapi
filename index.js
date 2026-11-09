@@ -147,6 +147,7 @@ function registerBundledSkill(ctx) {
             whenToUse: skill.whenToUse,
             source: 'bundled',
             provider: BUNDLED_SKILL_PROVIDER,
+            invocation: { modelInvocable: true, userInvocable: true },
             rank: 1000,
             path: skill.skillPath,
           }

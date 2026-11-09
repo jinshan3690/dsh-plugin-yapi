@@ -163,6 +163,7 @@ test('registers the bundled yapi-doc skill when no user copy exists', async () =
   assert.equal(candidates.length, 2)
   assert.deepEqual(candidates.map((item) => item.name), ['yapi-doc', 'yapi-sync'])
   assert.equal(candidates[0].source, 'bundled')
+  assert.equal(candidates[0].invocation.userInvocable, true)
   const loaded = await provider.get(candidates[0])
   assert.equal(loaded.name, 'yapi-doc')
   assert.match(loaded.content, /yapi-doc\.mjs/u)
