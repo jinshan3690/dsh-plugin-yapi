@@ -21,6 +21,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
+  joinUrl,
   normalizeBaseUrl,
   normalizeInterface,
   parseDocId,
@@ -467,7 +468,12 @@ export function apply(ctx, config = {}) {
       )
     ).filter(Boolean)
     const projects = (Array.isArray(data && data.project) ? data.project : []).slice(0, 10).map(function (row) {
-      return { id: Number(row && row._id), name: String((row && row.name) || '') }
+      const id = Number(row && row._id)
+      return {
+        id,
+        name: String((row && row.name) || ''),
+        pageUrl: joinUrl(state.settings.baseUrl, '/project', String(id), '/interface/api'),
+      }
     })
     return jsonResponse({
       ok: true,

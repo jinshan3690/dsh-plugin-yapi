@@ -692,8 +692,8 @@ function printHelp() {
   --json          输出结构化 JSON（默认 Markdown）
   --full          额外输出返回体示例（默认只输出返回字段说明）
   --no-fields     不输出请求/返回字段说明
-  --project <id>  --search 搜当前项目（必填）
-  --global        --search 搜所有项目（YAPI /api/project/search）
+  --project <id>  --search 只搜当前项目（可选）
+  --global        --search 搜所有项目（默认；YAPI /api/project/search）
   --dir <目录>    install-skill 的目标目录（默认 ~/.agents/skills/yapi-doc）
   --dry-run       sync-skills 只显示检测到的目标，不写入
   -h, --help      显示帮助
@@ -837,7 +837,7 @@ async function main() {
   const session = await createSession(settings)
 
   if (options.search !== '') {
-    if (options.global) {
+    if (options.global || !Number.isSafeInteger(options.projectId) || options.projectId <= 0) {
       const data = await session.get('/api/project/search?q=' + encodeURIComponent(options.search))
       const rows = Array.isArray(data?.interface) ? data.interface.slice(0, 10) : []
       const projectNames = new Map()
