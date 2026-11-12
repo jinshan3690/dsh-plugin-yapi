@@ -591,9 +591,11 @@ export function apply(ctx, config = {}) {
       if (!raw || typeof raw !== 'object' || Number(raw._id) <= 0) {
         throw new YapiError(`YAPI 没有返回文档 ${id} 的数据，可能已被删除。`, 'NO_DATA')
       }
+      const refresh = body && typeof body === 'object' && body.refresh === true
       let project = null
       const projectId = Number(raw && raw.project_id)
       if (Number.isSafeInteger(projectId) && projectId > 0) {
+        if (refresh) projectCache.delete(projectId)
         try {
           project = await projectOf(projectId)
         } catch (error) {

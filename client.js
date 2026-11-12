@@ -609,6 +609,26 @@ window.__ModuleLoader__.load({
 
 
 
+    function RefreshIcon(props) {
+      const size = (props && props.size) || 14
+      return h(
+        'svg',
+        {
+          width: size,
+          height: size,
+          viewBox: '0 0 24 24',
+          fill: 'none',
+          stroke: 'currentColor',
+          strokeWidth: 1.8,
+          strokeLinecap: 'round',
+          strokeLinejoin: 'round',
+          'aria-hidden': 'true',
+        },
+        h('path', { d: 'M20 11a8 8 0 1 0-2.34 6.34' }),
+        h('polyline', { points: '20 4 20 10 14 10' }),
+      )
+    }
+
     function CopyIcon(props) {
       const size = props && props.size ? props.size : 14
       return svg(size, [
@@ -1404,6 +1424,7 @@ window.__ModuleLoader__.load({
       const categorySeq = useRef(0)
       const searchWrapRef = useRef(null)
       const autoTabbed = useRef(false)
+      const baseDocId = useRef(null)
 
       const activeTab = tabs.find((item) => item.id === activeId) || null
       const doc = activeTab && activeTab.doc ? activeTab.doc : null
@@ -1420,6 +1441,8 @@ window.__ModuleLoader__.load({
       useEffect(
         function () {
           if (!doc) return
+          if (baseDocId.current === doc.id) return
+          baseDocId.current = doc.id
           setBase(doc.project.envs.length > 0 ? doc.project.envs[0].domain : '')
         },
         [doc],
@@ -1597,7 +1620,18 @@ window.__ModuleLoader__.load({
         return true
       }
 
-      function fetchDoc(id) {
+      function refreshDoc() {
+        if (activeId === null || loading) return
+        fetchDoc(activeId, {
+          refresh: true,
+          onSuccess: function () {
+            showToast('文档已刷新')
+          },
+        })
+      }
+
+      function fetchDoc(id, options) {
+        const opts = options || {}
         updateTabs(function (previous) {
           return previous.map(function (item) {
             return item.id === id ? Object.assign({}, item, { loading: true, error: null }) : item
@@ -1606,7 +1640,7 @@ window.__ModuleLoader__.load({
         fetch('/api/yapi/interface', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ id: id }),
+          body: JSON.stringify({ id: id, refresh: opts.refresh === true }),
         })
           .then(function (response) {
             return response
@@ -1641,6 +1675,7 @@ window.__ModuleLoader__.load({
                   })
                 })
                 addRecent(id)
+                if (opts.onSuccess) opts.onSuccess()
                 if (!autoTabbed.current) {
                   autoTabbed.current = true
                   if (readStorage(DOC_TAB_KEY, '') === '') {
@@ -2484,6 +2519,18 @@ window.__ModuleLoader__.load({
                     h(
                       'div',
                       { className: 'yapi-titlebar-actions' },
+                      h(
+                        'button',
+                        {
+                          type: 'button',
+                          className: 'yapi-btn ghost sm',
+                          disabled: loading,
+                          title: '重新拉取当前接口文档',
+                          onClick: refreshDoc,
+                        },
+                        h(RefreshIcon, { size: 13 }),
+                        loading ? '刷新中…' : '刷新',
+                      ),
                       doc.catid
                         ? h(
                             'button',
