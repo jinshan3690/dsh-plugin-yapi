@@ -479,6 +479,32 @@ window.__ModuleLoader__.load({
       const value = parseJsonSafe(exampleText)
       if (schema === undefined) return { nodes: [], total: 0 }
       const root = unwrapComposite(schema)
+      const rootType = root.type
+      const rootIsArray =
+        rootType === 'array' || (Array.isArray(rootType) && rootType.indexOf('array') !== -1)
+      if (rootIsArray) {
+        const items = Array.isArray(root.items) ? root.items[0] : root.items
+        const itemSchema = unwrapComposite(items)
+        const itemValue =
+          Array.isArray(value) && value.length > 0 && value[0] && typeof value[0] === 'object'
+            ? value[0]
+            : {}
+        const children =
+          itemSchema && itemSchema.properties && typeof itemSchema.properties === 'object'
+            ? treeChildren(itemSchema, itemValue, '[]')
+            : []
+        const node = {
+          id: '[]',
+          name: '[]',
+          path: '[]',
+          type: typeLabel(root) || 'array',
+          kind: 'array',
+          required: false,
+          description: schemaComment(root),
+          children: children,
+        }
+        return { nodes: [node], total: countTree([node]) }
+      }
       const nodes = treeChildren(root, value && typeof value === 'object' ? value : {}, '')
       return { nodes: nodes, total: countTree(nodes) }
     }

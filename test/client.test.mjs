@@ -315,3 +315,30 @@ test('buildCopyText includes only the checked sections', () => {
   )
   assert.equal(only, '## 返回体\n{"code":0}')
 })
+
+
+test('buildTreeFromSchema shows a root-level array as one expandable array node', () => {
+  const { hooks } = loadClient()
+  const schema = {
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        id: { type: 'integer' },
+        scheduleDataList: {
+          type: 'array',
+          items: { type: 'object', properties: { scheduleKey: { type: 'string' } } },
+        },
+      },
+    },
+  }
+  const example = [{ id: 1, scheduleDataList: [{ scheduleKey: 'k' }] }]
+  const tree = hooks.buildTreeFromSchema(JSON.stringify(schema), JSON.stringify(example))
+  assert.equal(tree.nodes.length, 1)
+  assert.equal(tree.nodes[0].kind, 'array')
+  assert.equal(tree.nodes[0].name, '[]')
+  assert.equal(tree.nodes[0].children.length, 2)
+  assert.equal(tree.nodes[0].children[0].name, 'id')
+  assert.equal(tree.nodes[0].children[1].kind, 'array')
+  assert.equal(tree.nodes[0].children[1].children[0].name, 'scheduleKey')
+})
